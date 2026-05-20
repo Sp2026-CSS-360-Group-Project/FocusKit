@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "FocusKit Manifest V3 Chrome productivity extension",
   "scripts": {
+    "pretest": "npx playwright install chromium",
     "test": "jest --runInBand && playwright test tests/smoke.extension.spec.js",
     "smoke": "playwright test tests/smoke.extension.spec.js",
     "check": "npm test && npm run smoke"
