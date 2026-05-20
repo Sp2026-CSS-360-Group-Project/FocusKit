@@ -1,25 +1,38 @@
 // background.js - MV3 service worker for timers, notifications, tabs, and popup messages.
 
 // Load shared Pomodoro state helpers when running as a Chrome service worker.
-if (typeof importScripts === "function" && typeof FocusKitPomodoroState === "undefined") {
+if (
+  typeof importScripts === "function" &&
+  typeof FocusKitPomodoroState === "undefined"
+) {
   importScripts("../tools/pomodor-timer/pomodoroState.js");
+  importScripts("../tools/focus-modes/focusModes.js");
 }
 
 // Reuse shared state helpers in Jest without duplicating timer rules in the worker.
-const pomodoroHelpers = typeof FocusKitPomodoroState !== "undefined"
-  ? FocusKitPomodoroState
-  : require("../tools/pomodor-timer/pomodoroState.js");
+const pomodoroHelpers =
+  typeof FocusKitPomodoroState !== "undefined"
+    ? FocusKitPomodoroState
+    : require("../tools/pomodor-timer/pomodoroState.js");
+
+const focusModeHelpers =
+  typeof FocusKitModes !== "undefined"
+    ? FocusKitModes
+    : require("../tools/focus-modes/focusModes.js");
 
 // Keep background command names centralized so popup and tests use one message surface.
 const POMODORO_ALARM_NAME = "focuskit:pomodoro";
 const POMODORO_COMPLETE_NOTIFICATION_ID = "focuskit-pomodoro-complete";
+// Separate id prevents the break notification overwriting the complete notification.
+const POMODORO_BREAK_NOTIFICATION_ID = "focuskit-pomodoro-break";
+
 const MESSAGE_ACTIONS = {
   ping: "ping",
   pomodoroGetState: "pomodoro:getState",
   pomodoroStart: "pomodoro:start",
   pomodoroPause: "pomodoro:pause",
   pomodoroReset: "pomodoro:reset",
-  focusSetMode: "focus:setMode"
+  focusSetMode: "focus:setMode",
 };
 
 const {
@@ -28,8 +41,10 @@ const {
   resetPomodoro,
   restorePomodoroState,
   startPomodoro,
-  tickPomodoro
+  tickPomodoro,
 } = pomodoroHelpers;
+
+const { loadFocusModes, FOCUS_MODES_STORAGE_KEY } = focusModeHelpers;
 
 // Register service worker listeners only when Chrome APIs are available.
 if (typeof chrome !== "undefined" && chrome.runtime) {
@@ -44,7 +59,7 @@ async function handleInstalled(details = {}) {
   await setStorage({
     installed: true,
     lifecycleEvent: details.reason || "unknown",
-    lastLifecycleAt: Date.now()
+    lastLifecycleAt: Date.now(),
   });
   await syncPomodoroAlarm();
 }
@@ -53,7 +68,7 @@ async function handleInstalled(details = {}) {
 async function handleStartup() {
   await setStorage({
     lifecycleEvent: "startup",
-    lastLifecycleAt: Date.now()
+    lastLifecycleAt: Date.now(),
   });
   await syncPomodoroAlarm();
 }
@@ -67,10 +82,12 @@ function handleMessage(message, sender, sendResponse) {
 
   handleMessageAsync(message)
     .then(sendResponse)
-    .catch(error => sendResponse({
-      success: false,
-      error: error.message || "Background request failed"
-    }));
+    .catch((error) =>
+      sendResponse({
+        success: false,
+        error: error.message || "Background request failed",
+      })
+    );
 
   return true;
 }
@@ -86,11 +103,17 @@ async function handleMessageAsync(message) {
   }
 
   if (message.action === MESSAGE_ACTIONS.pomodoroStart) {
-    return { success: true, state: await updatePomodoroState(startPomodoro, true) };
+    return {
+      success: true,
+      state: await updatePomodoroState(startPomodoro, true),
+    };
   }
 
   if (message.action === MESSAGE_ACTIONS.pomodoroPause) {
-    return { success: true, state: await updatePomodoroState(pausePomodoro, false) };
+    return {
+      success: true,
+      state: await updatePomodoroState(pausePomodoro, false, message.state),
+    };
   }
 
   if (message.action === MESSAGE_ACTIONS.pomodoroReset) {
@@ -125,7 +148,14 @@ async function handleAlarm(alarm) {
     await clearPomodoroAlarm();
 
     if (previousState.isRunning && previousState.remainingSeconds > 0) {
+      // Notify for session end. Then check if a break phase is starting.
       await notifyPomodoroComplete();
+
+      // If pomodoroState transitions into a break after completion, notify break start.
+      // A break phase is indicated when the next cycle sets isBreak = true.
+      if (nextState.isBreak) {
+        await notifyBreakStart();
+      }
     }
   }
 }
@@ -140,8 +170,10 @@ async function getCurrentPomodoroState() {
 }
 
 // Apply a timer transition, persist it, update alarms, and inform open popup views.
-async function updatePomodoroState(transition, shouldRunAlarm) {
-  const previousState = await readPomodoroState();
+async function updatePomodoroState(transition, shouldRunAlarm, overrideState) {
+  const previousState = overrideState
+    ? restorePomodoroState(overrideState)
+    : await readPomodoroState();
   const state = transition(previousState);
   await setStorage({ [POMODORO_STORAGE_KEY]: state });
 
@@ -165,7 +197,7 @@ async function readPomodoroState() {
 
 // Keep the alarm schedule aligned with persisted timer state after lifecycle events.
 async function syncPomodoroAlarm(state) {
-  const currentState = state || await readPomodoroState();
+  const currentState = state || (await readPomodoroState());
 
   if (currentState.isRunning) {
     await createPomodoroAlarm(currentState.remainingSeconds);
@@ -178,19 +210,21 @@ async function syncPomodoroAlarm(state) {
 function createPomodoroAlarm(remainingSeconds) {
   const delayInMinutes = Math.max(1 / 60, remainingSeconds / 60);
 
-  return new Promise(resolve => {
-    chrome.alarms.create(POMODORO_ALARM_NAME, { delayInMinutes }, () => resolve());
+  return new Promise((resolve) => {
+    chrome.alarms.create(POMODORO_ALARM_NAME, { delayInMinutes }, () =>
+      resolve()
+    );
   });
 }
 
 // Clear timer alarms whenever the timer pauses, resets, or completes.
 function clearPomodoroAlarm() {
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     chrome.alarms.clear(POMODORO_ALARM_NAME, () => resolve());
   });
 }
 
-// Notify the user only when notifications are enabled or not explicitly configured.
+// Notify the user when a focus sprint ends. Skipped if notifications are disabled.
 async function notifyPomodoroComplete() {
   const settings = await getStorage(["notifications"]);
 
@@ -198,13 +232,63 @@ async function notifyPomodoroComplete() {
     return;
   }
 
-  await new Promise(resolve => {
-    chrome.notifications.create(POMODORO_COMPLETE_NOTIFICATION_ID, {
-      type: "basic",
-      iconUrl: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAQAAAAAYLlVAAAAW0lEQVR42u3QMQEAAAgDIN8/9K3hCGQKUpmZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAtwY/QgAB2ndzLAAAAABJRU5ErkJggg==",
-      title: "Focus sprint complete",
-      message: "Your Pomodoro is done. Take a short reset before the next block."
-    }, () => resolve());
+  // Clear any stale break notification before showing the complete one.
+  await clearNotification(POMODORO_BREAK_NOTIFICATION_ID);
+
+  await new Promise((resolve) => {
+    chrome.notifications.create(
+      POMODORO_COMPLETE_NOTIFICATION_ID,
+      {
+        type: "basic",
+        iconUrl:
+          typeof chrome.runtime.getURL === "function"
+            ? chrome.runtime.getURL("icons/icon48.png")
+            : "icons/icon48.png",
+        title: "Focus sprint complete",
+        message:
+          "Your Pomodoro is done. Take a short reset before the next block.",
+      },
+      () => resolve()
+    );
+  });
+}
+
+// Notify the user when a break phase begins. Skipped if notifications are disabled.
+async function notifyBreakStart() {
+  const settings = await getStorage(["notifications"]);
+
+  if (settings.notifications === false) {
+    return;
+  }
+
+  // Clear the complete notification so the break one is the only one visible.
+  await clearNotification(POMODORO_COMPLETE_NOTIFICATION_ID);
+
+  await new Promise((resolve) => {
+    chrome.notifications.create(
+      POMODORO_BREAK_NOTIFICATION_ID,
+      {
+        type: "basic",
+        iconUrl:
+          "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAQAAAAAYLlVAAAAW0lEQVR42u3QMQEAAAgDIN8/9K3hCGQKUpmZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAtwY/QgAB2ndzLAAAAABJRU5ErkJggg==",
+        title: "Break time",
+        message: "Good work. Step away, stretch, and come back refreshed.",
+      },
+      () => resolve()
+    );
+  });
+}
+
+// Safely clear a notification without throwing if it does not exist.
+function clearNotification(notificationId) {
+  return new Promise((resolve) => {
+    // chrome.notifications.clear may be absent in Jest stubs, so we check
+    // before calling to keep tests passing without modifying the test file.
+    if (chrome.notifications.clear) {
+      chrome.notifications.clear(notificationId, () => resolve());
+    } else {
+      resolve();
+    }
   });
 }
 
@@ -215,14 +299,36 @@ function broadcastPomodoroState(state) {
   });
 }
 
-// Persist focus mode and apply lightweight tab control for deep-work style modes.
+// Load the saved focus mode, resolve its stored tool list, and apply everything.
 async function applyFocusMode(modeId) {
   if (typeof modeId !== "string" || !modeId) {
     return { success: false, error: "Invalid focus mode" };
   }
 
+  // Retrieve the full mode definition from storage so we know which tools to enable.
+  const modeDefinition = await resolveModeById(modeId);
+
   await setStorage({ focusMode: modeId });
 
+  // Stop any running Pomodoro when the new mode doesn't include it.
+  const enabledTools = modeDefinition ? modeDefinition.enabledTools || [] : [];
+  if (!enabledTools.includes("pomodoro")) {
+    const pomState = await readPomodoroState();
+    if (pomState.isRunning) {
+      const stopped = pausePomodoro(pomState);
+      await setStorage({ [POMODORO_STORAGE_KEY]: stopped });
+      await clearPomodoroAlarm();
+      broadcastPomodoroState(stopped);
+    }
+  }
+
+  // Persist which tools are active so the popup can restore correct toggle states.
+  await setStorage({ activeTools: enabledTools });
+
+  // Broadcast the new tool state so any open popup updates immediately.
+  broadcastFocusModeApplied(modeId, enabledTools);
+
+  // Apply lightweight tab control for deep-work style modes.
   const shouldMuteActiveTab = modeId === "deep-work" || modeId === "study";
   const activeTab = await getActiveTab();
 
@@ -230,33 +336,59 @@ async function applyFocusMode(modeId) {
     await updateTab(activeTab.id, { muted: shouldMuteActiveTab });
   }
 
-  return { success: true, modeId, tabControlled: Boolean(activeTab) };
+  return {
+    success: true,
+    modeId,
+    enabledTools,
+    tabControlled: Boolean(activeTab),
+  };
+}
+
+// Look up a mode definition from storage by id, returning null if not found.
+function resolveModeById(modeId) {
+  return new Promise((resolve) => {
+    loadFocusModes((modes) => {
+      resolve(modes.find((m) => m.id === modeId) || null);
+    });
+  });
+}
+
+// Inform any open popup that a focus mode was applied and which tools are now active.
+function broadcastFocusModeApplied(modeId, enabledTools) {
+  chrome.runtime.sendMessage(
+    { action: "focus:modeApplied", modeId, enabledTools },
+    () => {
+      void chrome.runtime.lastError;
+    }
+  );
 }
 
 // Query the current active tab for focus enforcement actions.
 function getActiveTab() {
-  return new Promise(resolve => {
-    chrome.tabs.query({ active: true, currentWindow: true }, tabs => resolve(tabs[0] || null));
+  return new Promise((resolve) => {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) =>
+      resolve(tabs[0] || null)
+    );
   });
 }
 
 // Wrap tab updates so focus behavior is testable and service-worker friendly.
 function updateTab(tabId, properties) {
-  return new Promise(resolve => {
-    chrome.tabs.update(tabId, properties, tab => resolve(tab));
+  return new Promise((resolve) => {
+    chrome.tabs.update(tabId, properties, (tab) => resolve(tab));
   });
 }
 
 // Promise wrapper for chrome.storage.local.get.
 function getStorage(keys) {
-  return new Promise(resolve => {
-    chrome.storage.local.get(keys, data => resolve(data || {}));
+  return new Promise((resolve) => {
+    chrome.storage.local.get(keys, (data) => resolve(data || {}));
   });
 }
 
 // Promise wrapper for chrome.storage.local.set.
 function setStorage(values) {
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     chrome.storage.local.set(values, () => resolve());
   });
 }
@@ -266,11 +398,15 @@ if (typeof module !== "undefined") {
   module.exports = {
     MESSAGE_ACTIONS,
     POMODORO_ALARM_NAME,
+    POMODORO_BREAK_NOTIFICATION_ID,
+    POMODORO_COMPLETE_NOTIFICATION_ID,
     applyFocusMode,
     handleAlarm,
     handleInstalled,
     handleMessage,
     handleMessageAsync,
-    handleStartup
+    handleStartup,
+    notifyBreakStart,
+    notifyPomodoroComplete,
   };
 }
