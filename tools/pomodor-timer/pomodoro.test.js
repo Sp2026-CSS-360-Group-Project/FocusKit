@@ -8,7 +8,7 @@ const {
   resetPomodoro,
   restorePomodoroState,
   startPomodoro,
-  tickPomodoro
+  tickPomodoro,
 } = require("./pomodoroState.js");
 
 describe("Pomodoro timer state", () => {
@@ -54,7 +54,7 @@ describe("Pomodoro timer state", () => {
     const saved = {
       remainingSeconds: 1200,
       isRunning: false,
-      lastUpdatedAt: 5000
+      lastUpdatedAt: 5000,
     };
 
     expect(restorePomodoroState(saved, 10000)).toEqual(saved);
@@ -64,7 +64,9 @@ describe("Pomodoro timer state", () => {
     const running = startPomodoro(createInitialPomodoroState(1000), 1000);
     const afterFiveSeconds = tickPomodoro(running, 6000);
 
-    expect(afterFiveSeconds.remainingSeconds).toBe(POMODORO_DURATION_SECONDS - 5);
+    expect(afterFiveSeconds.remainingSeconds).toBe(
+      POMODORO_DURATION_SECONDS - 5
+    );
     expect(afterFiveSeconds.isRunning).toBe(true);
   });
 
@@ -72,7 +74,7 @@ describe("Pomodoro timer state", () => {
     const running = {
       remainingSeconds: 2,
       isRunning: true,
-      lastUpdatedAt: 1000
+      lastUpdatedAt: 1000,
     };
     const elapsed = tickPomodoro(running, 10000);
 

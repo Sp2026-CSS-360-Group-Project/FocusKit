@@ -1,0 +1,264 @@
+/*
+  focus-modes.css
+  Append these rules to popup.css (or import this file from popup.html).
+  They add styles for: the "New mode" button, the create/edit overlay form,
+  the confirmation dialog, and the per-card Edit / Delete action buttons.
+*/
+
+/* ── "New mode" add button ───────────────────────────────────────────────── */
+.focus-add-btn {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 10px 0;
+  background: transparent;
+  border: 1.5px dashed rgba(255, 255, 255, 0.18);
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 13px;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    color 0.15s;
+}
+
+.focus-add-btn:hover {
+  border-color: rgba(255, 255, 255, 0.38);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.theme-light .focus-add-btn {
+  border-color: rgba(0, 0, 0, 0.18);
+  color: rgba(0, 0, 0, 0.45);
+}
+
+.theme-light .focus-add-btn:hover {
+  border-color: rgba(0, 0, 0, 0.4);
+  color: rgba(0, 0, 0, 0.7);
+}
+
+/* ── Per-card action buttons (Edit / Delete) ─────────────────────────────── */
+.focus-card-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.focus-action-btn {
+  padding: 3px 10px;
+  font-size: 11px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.55);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s,
+    border-color 0.15s;
+}
+
+.focus-action-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.focus-action-btn--danger:hover {
+  background: rgba(220, 53, 69, 0.2);
+  color: #ff6b7a;
+  border-color: rgba(220, 53, 69, 0.45);
+}
+
+.theme-light .focus-action-btn {
+  border-color: rgba(0, 0, 0, 0.2);
+  color: rgba(0, 0, 0, 0.5);
+}
+
+.theme-light .focus-action-btn:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: rgba(0, 0, 0, 0.8);
+}
+
+.theme-light .focus-action-btn--danger:hover {
+  background: rgba(220, 53, 69, 0.08);
+  color: #c0392b;
+}
+
+/* ── Overlay backdrop (create / edit / confirm) ──────────────────────────── */
+.focus-form-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 16px;
+  z-index: 100;
+  border-radius: 12px;
+}
+
+.theme-light .focus-form-overlay {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+/* ── Form card ───────────────────────────────────────────────────────────── */
+.focus-form {
+  width: calc(100% - 24px);
+  background: #1e1e28;
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+.theme-light .focus-form {
+  background: #ffffff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.focus-form-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 4px;
+}
+
+.theme-light .focus-form-title {
+  color: rgba(0, 0, 0, 0.85);
+}
+
+/* ── Labels and inputs ───────────────────────────────────────────────────── */
+.focus-form-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.4);
+  margin-top: 4px;
+}
+
+.theme-light .focus-form-label {
+  color: rgba(0, 0, 0, 0.45);
+}
+
+.focus-form-input {
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 13px;
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.focus-form-input:focus {
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.theme-light .focus-form-input {
+  border-color: rgba(0, 0, 0, 0.15);
+  background: #f5f5f7;
+  color: rgba(0, 0, 0, 0.85);
+}
+
+.theme-light .focus-form-input:focus {
+  border-color: rgba(0, 0, 0, 0.35);
+}
+
+/* ── Tool checkboxes ─────────────────────────────────────────────────────── */
+.focus-form-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.focus-form-tool-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.75);
+  cursor: pointer;
+}
+
+.theme-light .focus-form-tool-row {
+  color: rgba(0, 0, 0, 0.7);
+}
+
+/* ── Inline error message ────────────────────────────────────────────────── */
+.focus-form-error {
+  margin: 0;
+  font-size: 12px;
+  color: #ff6b7a;
+}
+
+/* ── Save / Cancel buttons ───────────────────────────────────────────────── */
+.focus-form-buttons {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.focus-form-save,
+.focus-form-cancel {
+  flex: 1;
+  padding: 8px 0;
+  border-radius: 8px;
+  border: none;
+  font-size: 13px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.focus-form-save {
+  background: rgba(255, 255, 255, 0.9);
+  color: #111;
+  font-weight: 600;
+}
+
+.focus-form-save--danger {
+  background: rgba(220, 53, 69, 0.85);
+  color: #fff;
+}
+
+.focus-form-save:hover,
+.focus-form-cancel:hover {
+  opacity: 0.85;
+}
+
+.focus-form-cancel {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.theme-light .focus-form-save {
+  background: #111;
+  color: #fff;
+}
+
+.theme-light .focus-form-cancel {
+  background: rgba(0, 0, 0, 0.07);
+  color: rgba(0, 0, 0, 0.65);
+}
+
+/* ── Confirm dialog variant ──────────────────────────────────────────────── */
+.focus-confirm {
+  gap: 12px;
+}
+
+.focus-confirm-msg {
+  margin: 0;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.75);
+  line-height: 1.5;
+}
+
+.theme-light .focus-confirm-msg {
+  color: rgba(0, 0, 0, 0.65);
+}

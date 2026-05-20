@@ -21,7 +21,7 @@ const TOOLS = [
       if (window.FocusKitPomodoro) {
         window.FocusKitPomodoro.open();
       }
-    }
+    },
   },
   {
     id: "iris",
@@ -31,7 +31,7 @@ const TOOLS = [
     launch(button) {
       markToolLaunched(button, "Ready");
       chrome.storage.local.set({ activeTool: "iris" });
-    }
+    },
   },
   {
     id: "eisenhower",
@@ -41,8 +41,8 @@ const TOOLS = [
     launch(button) {
       markToolLaunched(button, "Ready");
       chrome.storage.local.set({ activeTool: "eisenhower" });
-    }
-  }
+    },
+  },
 ];
 
 // Registry consumed by popup.js when building the Focus tab.
@@ -51,20 +51,20 @@ const FOCUS_MODES = [
     id: "deep-work",
     name: "Deep Work",
     icon: "D",
-    desc: "Long, distraction-light sessions for complex work."
+    desc: "Long, distraction-light sessions for complex work.",
   },
   {
     id: "study",
     name: "Study",
     icon: "S",
-    desc: "Structured review mode for notes, reading, and practice."
+    desc: "Structured review mode for notes, reading, and practice.",
   },
   {
     id: "break",
     name: "Break",
     icon: "B",
-    desc: "A softer mode for resetting before the next session."
-  }
+    desc: "A softer mode for resetting before the next session.",
+  },
 ];
 
 // Attach registries for popup scripts loaded directly by popup.html.
