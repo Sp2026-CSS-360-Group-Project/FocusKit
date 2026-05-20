@@ -6,14 +6,15 @@
   padding: 0;
 }
 
+/* I changed the colors of our extention and the fonts of the texts */
 :root,
 .theme-dark {
-  --bg: #050816;
+  --bg: #050816; 
   --surface: #111827;
   --panel: #111827;
   --border: rgba(255, 255, 255, 0.12);
-  --accent: #e8ff47;
-  --accent2: #47d4ff;
+  --accent: #756fb6;
+  --accent2: #59bad8;
   --text: #f9fafb;
   --muted: #9ca3af;
   --danger: #ff6b6b;
@@ -27,7 +28,7 @@
   --surface: #ffffff;
   --panel: #ffffff;
   --border: rgba(17, 24, 39, 0.12);
-  --accent: #365314;
+  --accent: #94e4e6;
   --accent2: #0369a1;
   --text: #111827;
   --muted: #4b5563;
@@ -37,13 +38,19 @@
   --radius: 10px;
 }
 
+/* changed the width of the extention box*/
 body {
-  width: 320px;
-  min-height: 420px;
+  width: 500px;  /*changed the width and length*/
+  min-height: 550px;
   background: var(--bg);
   color: var(--text);
+<<<<<<< Updated upstream
   font-family: "DM Mono", monospace;
   font-size: 13px;
+=======
+  font-family: 'Sora', sans-serif;
+  font-size: 15px;
+>>>>>>> Stashed changes
   overflow: hidden;
 }
 
@@ -64,6 +71,7 @@ body {
   border-bottom: 1px solid var(--border);
 }
 
+<<<<<<< Updated upstream
 .logo {
   display: flex;
   align-items: center;
@@ -79,6 +87,11 @@ body {
   font-size: 16px;
   letter-spacing: -0.5px;
 }
+=======
+.logo { display: flex; align-items: center; gap: 8px; }
+.logo-icon { font-size: 18px; color: var(--accent); }
+.logo-text { font-family: 'Sora', sans-serif; font-weight: 800; font-size: 16px; letter-spacing: -0.5px; }
+>>>>>>> Stashed changes
 
 .status-dot {
   width: 8px;
@@ -104,8 +117,13 @@ body {
   background: none;
   border: none;
   color: var(--muted);
+<<<<<<< Updated upstream
   font-family: "DM Mono", monospace;
   font-size: 11px;
+=======
+  font-family: 'Sora', sans-serif;
+  font-size: 13px;
+>>>>>>> Stashed changes
   font-weight: 500;
   padding: 10px 4px;
   cursor: pointer;
@@ -148,7 +166,7 @@ body {
 }
 
 .section-label {
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 0.15em;
   color: var(--muted);
   margin-bottom: 10px;
@@ -195,8 +213,13 @@ body {
   border: none;
   border-radius: 6px;
   padding: 5px 10px;
+<<<<<<< Updated upstream
   font-family: "DM Mono", monospace;
   font-size: 10px;
+=======
+  font-family: 'Sora', sans-serif;
+  font-size: 13px;
+>>>>>>> Stashed changes
   font-weight: 500;
   cursor: pointer;
   transition: opacity 0.2s;
@@ -225,13 +248,17 @@ body {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
+  gap: 11px;
   margin-bottom: 14px;
 }
 
 .pomodoro-title {
   color: var(--text);
+<<<<<<< Updated upstream
   font-family: "Syne", sans-serif;
+=======
+  font-family: 'Sora', sans-serif;
+>>>>>>> Stashed changes
   font-size: 18px;
   line-height: 1;
 }
@@ -241,13 +268,17 @@ body {
   border: 1px solid var(--border);
   border-radius: 999px;
   padding: 4px 8px;
-  font-size: 10px;
+  font-size: 13px;
   text-transform: uppercase;
 }
 
 .pomodoro-time {
   color: var(--text);
+<<<<<<< Updated upstream
   font-family: "DM Mono", monospace;
+=======
+  font-family: 'Sora', sans-serif;
+>>>>>>> Stashed changes
   font-size: 44px;
   font-weight: 500;
   letter-spacing: -0.08em;
@@ -267,8 +298,13 @@ body {
   border: 1px solid transparent;
   border-radius: 8px;
   padding: 8px 10px;
+<<<<<<< Updated upstream
   font-family: "DM Mono", monospace;
   font-size: 11px;
+=======
+  font-family: 'Sora', sans-serif;
+  font-size: 13px;
+>>>>>>> Stashed changes
   cursor: pointer;
 }
 
@@ -299,6 +335,7 @@ body {
   background: var(--selected-bg);
 }
 
+<<<<<<< Updated upstream
 .focus-header {
   display: flex;
   align-items: center;
@@ -318,6 +355,12 @@ body {
   color: var(--muted);
   padding-left: 22px;
 }
+=======
+.focus-header { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
+.focus-icon { font-size: 14px; }
+.focus-name { font-family: 'Sora', sans-serif; font-weight: 600; font-size: 12px; }
+.focus-desc { font-size: 11px; color: var(--muted); padding-left: 22px; }
+>>>>>>> Stashed changes
 
 /* Settings */
 .setting-row {
@@ -378,3 +421,8 @@ body {
   transform: translateX(16px);
   background: var(--accent);
 }
+<<<<<<< Updated upstream
+=======
+.toggle input:checked + .slider { background: var(--toggle-on-bg); }
+.toggle input:checked + .slider::before { transform: translateX(16px); background: var(--accent); }
+>>>>>>> Stashed changes
