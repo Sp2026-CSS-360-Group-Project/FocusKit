@@ -33,11 +33,11 @@
 
     const elapsedSeconds = Math.max(
       0,
-      Math.floor((now - state.lastUpdatedAt) / 1000),
+      Math.floor((now - state.lastUpdatedAt) / 1000)
     );
     const remainingSeconds = Math.max(
       0,
-      state.remainingSeconds - elapsedSeconds,
+      state.remainingSeconds - elapsedSeconds
     );
 
     return {
@@ -84,7 +84,7 @@
       {
         remainingSeconds: Math.min(
           POMODORO_DURATION_SECONDS,
-          Math.max(0, savedState.remainingSeconds),
+          Math.max(0, savedState.remainingSeconds)
         ),
         isRunning: Boolean(savedState.isRunning),
         lastUpdatedAt:
@@ -92,7 +92,7 @@
             ? savedState.lastUpdatedAt
             : now,
       },
-      now,
+      now
     );
   }
 

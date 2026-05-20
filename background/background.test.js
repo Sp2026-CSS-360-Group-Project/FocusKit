@@ -59,7 +59,7 @@ function createChromeMock(initialStorage = {}) {
         get: jest.fn((keys, callback) => {
           if (Array.isArray(keys)) {
             callback(
-              Object.fromEntries(keys.map((key) => [key, storage[key]])),
+              Object.fromEntries(keys.map((key) => [key, storage[key]]))
             );
             return;
           }
@@ -110,13 +110,13 @@ function sendMessage(chrome, message) {
 describe("manifest background registration", () => {
   test("registers the MV3 service worker with required background permissions", () => {
     const manifest = JSON.parse(
-      fs.readFileSync(path.join(__dirname, "..", "manifest.json"), "utf8"),
+      fs.readFileSync(path.join(__dirname, "..", "manifest.json"), "utf8")
     );
 
     expect(manifest.manifest_version).toBe(3);
     expect(manifest.background.service_worker).toBe("background/background.js");
     expect(manifest.permissions).toEqual(
-      expect.arrayContaining(["alarms", "notifications", "storage", "tabs"]),
+      expect.arrayContaining(["alarms", "notifications", "storage", "tabs"])
     );
   });
 });
@@ -152,7 +152,7 @@ describe("FocusKit background service worker", () => {
     expect(chrome.alarms.create).toHaveBeenCalledWith(
       "focuskit:pomodoro",
       { delayInMinutes: 25 },
-      expect.any(Function),
+      expect.any(Function)
     );
 
     Date.now.mockReturnValue(61000);
@@ -161,12 +161,59 @@ describe("FocusKit background service worker", () => {
     expect(paused.state.remainingSeconds).toBe(1440);
     expect(chrome.alarms.clear).toHaveBeenCalledWith(
       "focuskit:pomodoro",
-      expect.any(Function),
+      expect.any(Function)
     );
 
     const reset = await sendMessage(chrome, { action: "pomodoro:reset" });
     expect(reset.state.remainingSeconds).toBe(1500);
     expect(reset.state.isRunning).toBe(false);
+
+    Date.now.mockRestore();
+  });
+
+  test("returns saved paused Pomodoro time without resetting", async () => {
+    jest.spyOn(Date, "now").mockReturnValue(100000);
+    const savedState = {
+      remainingSeconds: 1499,
+      isRunning: false,
+      lastUpdatedAt: 99000,
+    };
+    const { chrome } = loadBackground({ pomodoroState: savedState });
+
+    const response = await sendMessage(chrome, {
+      action: "pomodoro:getState",
+    });
+
+    expect(response.success).toBe(true);
+    expect(response.state).toEqual(savedState);
+    expect(chrome.__storage.pomodoroState).toEqual(savedState);
+
+    Date.now.mockRestore();
+  });
+
+  test("pause can persist the popup-visible remaining time", async () => {
+    jest.spyOn(Date, "now").mockReturnValue(200000);
+    const { chrome } = loadBackground({
+      pomodoroState: {
+        remainingSeconds: 1500,
+        isRunning: true,
+        lastUpdatedAt: 1000,
+      },
+    });
+
+    const response = await sendMessage(chrome, {
+      action: "pomodoro:pause",
+      state: {
+        remainingSeconds: 1499,
+        isRunning: false,
+        lastUpdatedAt: 199000,
+      },
+    });
+
+    expect(response.success).toBe(true);
+    expect(response.state.remainingSeconds).toBe(1499);
+    expect(response.state.isRunning).toBe(false);
+    expect(chrome.__storage.pomodoroState.remainingSeconds).toBe(1499);
 
     Date.now.mockRestore();
   });
@@ -195,14 +242,14 @@ describe("FocusKit background service worker", () => {
         type: "basic",
         title: "Focus sprint complete",
       }),
-      expect.any(Function),
+      expect.any(Function)
     );
     expect(chrome.runtime.sendMessage).toHaveBeenCalledWith(
       {
         action: "pomodoro:stateChanged",
         state: chrome.__storage.pomodoroState,
       },
-      expect.any(Function),
+      expect.any(Function)
     );
 
     Date.now.mockRestore();
@@ -220,12 +267,12 @@ describe("FocusKit background service worker", () => {
     expect(chrome.__storage.focusMode).toBe("deep-work");
     expect(chrome.tabs.query).toHaveBeenCalledWith(
       { active: true, currentWindow: true },
-      expect.any(Function),
+      expect.any(Function)
     );
     expect(chrome.tabs.update).toHaveBeenCalledWith(
       42,
       { muted: true },
-      expect.any(Function),
+      expect.any(Function)
     );
   });
 });

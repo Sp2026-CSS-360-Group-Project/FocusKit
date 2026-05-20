@@ -71,7 +71,7 @@ test("createFocusMode appends a new mode with a generated id", (done) => {
       expect(newMode.id).toMatch(/^custom-\d+$/);
       expect(all).toHaveLength(DEFAULT_FOCUS_MODES.length + 1);
       done();
-    },
+    }
   );
 });
 
@@ -112,7 +112,7 @@ test("updateFocusMode updates enabledTools on a custom mode", (done) => {
       const mode = updated.find((m) => m.id === "custom-1");
       expect(mode.enabledTools).toEqual(["pomodoro", "eisenhower"]);
       done();
-    },
+    }
   );
 });
 

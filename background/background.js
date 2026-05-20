@@ -86,7 +86,7 @@ function handleMessage(message, sender, sendResponse) {
       sendResponse({
         success: false,
         error: error.message || "Background request failed",
-      }),
+      })
     );
 
   return true;
@@ -112,7 +112,7 @@ async function handleMessageAsync(message) {
   if (message.action === MESSAGE_ACTIONS.pomodoroPause) {
     return {
       success: true,
-      state: await updatePomodoroState(pausePomodoro, false),
+      state: await updatePomodoroState(pausePomodoro, false, message.state),
     };
   }
 
@@ -170,8 +170,10 @@ async function getCurrentPomodoroState() {
 }
 
 // Apply a timer transition, persist it, update alarms, and inform open popup views.
-async function updatePomodoroState(transition, shouldRunAlarm) {
-  const previousState = await readPomodoroState();
+async function updatePomodoroState(transition, shouldRunAlarm, overrideState) {
+  const previousState = overrideState
+    ? restorePomodoroState(overrideState)
+    : await readPomodoroState();
   const state = transition(previousState);
   await setStorage({ [POMODORO_STORAGE_KEY]: state });
 
@@ -210,7 +212,7 @@ function createPomodoroAlarm(remainingSeconds) {
 
   return new Promise((resolve) => {
     chrome.alarms.create(POMODORO_ALARM_NAME, { delayInMinutes }, () =>
-      resolve(),
+      resolve()
     );
   });
 }
@@ -246,7 +248,7 @@ async function notifyPomodoroComplete() {
         message:
           "Your Pomodoro is done. Take a short reset before the next block.",
       },
-      () => resolve(),
+      () => resolve()
     );
   });
 }
@@ -272,7 +274,7 @@ async function notifyBreakStart() {
         title: "Break time",
         message: "Good work. Step away, stretch, and come back refreshed.",
       },
-      () => resolve(),
+      () => resolve()
     );
   });
 }
@@ -357,7 +359,7 @@ function broadcastFocusModeApplied(modeId, enabledTools) {
     { action: "focus:modeApplied", modeId, enabledTools },
     () => {
       void chrome.runtime.lastError;
-    },
+    }
   );
 }
 
@@ -365,7 +367,7 @@ function broadcastFocusModeApplied(modeId, enabledTools) {
 function getActiveTab() {
   return new Promise((resolve) => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) =>
-      resolve(tabs[0] || null),
+      resolve(tabs[0] || null)
     );
   });
 }

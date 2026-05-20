@@ -27,7 +27,7 @@ function setupTabs() {
   buttons.forEach((button) => {
     button.addEventListener("click", () => {
       buttons.forEach((currentButton) =>
-        currentButton.classList.remove("active"),
+        currentButton.classList.remove("active")
       );
       panels.forEach((panel) => panel.classList.remove("active"));
 
@@ -113,7 +113,7 @@ function renderFocusModes(modes) {
   chrome.storage.local.get(["focusMode"], (data) => {
     if (data.focusMode) {
       const savedCard = container.querySelector(
-        `[data-mode-id="${data.focusMode}"]`,
+        `[data-mode-id="${data.focusMode}"]`
       );
       if (savedCard) selectFocusMode(data.focusMode, savedCard, false);
     }
@@ -198,7 +198,7 @@ function openModeForm(existingMode) {
   overlay.setAttribute("aria-modal", "true");
   overlay.setAttribute(
     "aria-label",
-    existingMode ? "Edit focus mode" : "New focus mode",
+    existingMode ? "Edit focus mode" : "New focus mode"
   );
 
   const form = document.createElement("div");
@@ -288,7 +288,7 @@ function openModeForm(existingMode) {
     errorMsg.hidden = true;
 
     const enabledTools = Array.from(
-      toolsGroup.querySelectorAll("input[type=checkbox]"),
+      toolsGroup.querySelectorAll("input[type=checkbox]")
     )
       .filter((cb) => cb.checked)
       .map((cb) => cb.value);
@@ -300,7 +300,7 @@ function openModeForm(existingMode) {
         () => {
           overlay.remove();
           loadAndRenderFocusModes();
-        },
+        }
       );
     } else {
       window.FocusKitModes.createFocusMode(
@@ -311,7 +311,7 @@ function openModeForm(existingMode) {
         () => {
           overlay.remove();
           loadAndRenderFocusModes();
-        },
+        }
       );
     }
   });
@@ -326,7 +326,7 @@ function openModeForm(existingMode) {
     toolsLabel,
     toolsGroup,
     errorMsg,
-    buttonRow,
+    buttonRow
   );
   overlay.appendChild(form);
 
@@ -402,7 +402,7 @@ function loadSavedState() {
 
     if (data.focusMode) {
       const savedCard = document.querySelector(
-        `[data-mode-id="${data.focusMode}"]`,
+        `[data-mode-id="${data.focusMode}"]`
       );
 
       if (savedCard) {

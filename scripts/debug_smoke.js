@@ -6,7 +6,7 @@ const path = require("path");
 (async () => {
   const extensionPath = path.resolve(__dirname, "..");
   const userDataDir = fs.mkdtempSync(
-    path.join(require("os").tmpdir(), "focuskit-debug-"),
+    path.join(require("os").tmpdir(), "focuskit-debug-")
   );
   const context = await chromium.launchPersistentContext(userDataDir, {
     channel: "chromium",
@@ -50,11 +50,11 @@ const path = require("path");
   const hasFocusModes = await page.evaluate(() => Boolean(window.FOCUS_MODES));
   console.log("window.FOCUS_MODES present?", hasFocusModes);
   const hasSetupTabs = await page.evaluate(
-    () => typeof setupTabs === "function",
+    () => typeof setupTabs === "function"
   );
   console.log("setupTabs defined?", hasSetupTabs);
   const hasRenderTools = await page.evaluate(
-    () => typeof renderTools === "function",
+    () => typeof renderTools === "function"
   );
   console.log("renderTools defined?", hasRenderTools);
   await page.waitForSelector(".tool-card");
@@ -67,7 +67,7 @@ const path = require("path");
   await page.waitForSelector("#pomodoroPanel");
   console.log(
     "Pomodoro panel visible, initial time:",
-    await page.$eval("#pomodoroTime", (el) => el.textContent),
+    await page.$eval("#pomodoroTime", (el) => el.textContent)
   );
 
   await page.click('button:has-text("Start")');
@@ -79,9 +79,9 @@ const path = require("path");
       () =>
         new Promise((res) =>
           chrome.runtime.sendMessage({ action: "pomodoro:getState" }, (r) =>
-            res(r),
-          ),
-        ),
+            res(r)
+          )
+        )
     );
     console.log("Background responded to getState:", bgState);
   } catch (e) {
@@ -94,14 +94,14 @@ const path = require("path");
       () =>
         new Promise((res) =>
           chrome.storage.local.get(["pomodoroState"], (data) =>
-            res(data.pomodoroState),
-          ),
-        ),
+            res(data.pomodoroState)
+          )
+        )
     );
     const domTime = await page.$eval("#pomodoroTime", (el) => el.textContent);
     const status = await page.$eval("#pomodoroStatus", (el) => el.textContent);
     console.log(
-      `Tick ${i}: storage=${JSON.stringify(storage)}, domTime=${domTime}, status=${status}`,
+      `Tick ${i}: storage=${JSON.stringify(storage)}, domTime=${domTime}, status=${status}`
     );
     await new Promise((r) => setTimeout(r, 1000));
   }

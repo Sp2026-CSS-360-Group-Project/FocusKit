@@ -45,7 +45,7 @@ function loadFocusModes(callback) {
         { [FOCUS_MODES_STORAGE_KEY]: DEFAULT_FOCUS_MODES },
         () => {
           callback(DEFAULT_FOCUS_MODES);
-        },
+        }
       );
     } else {
       callback(stored);
@@ -110,8 +110,8 @@ function deleteFocusMode(modeId, callback) {
       if (data[ACTIVE_MODE_STORAGE_KEY] === modeId) {
         ops.push(
           new Promise((res) =>
-            chrome.storage.local.remove(ACTIVE_MODE_STORAGE_KEY, res),
-          ),
+            chrome.storage.local.remove(ACTIVE_MODE_STORAGE_KEY, res)
+          )
         );
       }
       Promise.all(ops).then(() => callback(true, updated));

@@ -3,18 +3,23 @@
   "version": "1.0.0",
   "description": "FocusKit Manifest V3 Chrome productivity extension",
   "scripts": {
-    "test": "jest --runInBand",
+    "pretest": "npx playwright install chromium",
+    "test": "jest --runInBand && playwright test tests/smoke.extension.spec.js",
     "smoke": "playwright test tests/smoke.extension.spec.js",
-    "check": "npm test && npm run smoke",
-    "lint": "node static-analysis/eslint.js",
-    "format": "prettier --write \"**/*.js\" --ignore-path .gitignore"
+    "check": "npm run static && npm test && npm run smoke",
+    "lint": "eslint . --config static-analysis/eslint.config.mjs",
+    "format": "prettier --write \"**/*.{js,json,css,html,md,yml,yaml}\" --ignore-path .gitignore --config static-analysis/.prettierrc",
+    "format:check": "prettier --check \"**/*.{js,json,css,html,md,yml,yaml}\" --ignore-path .gitignore --config static-analysis/.prettierrc",
+    "security": "npm audit --audit-level=high",
+    "static": "npm run format:check && npm run lint && npm run security"
   },
   "devDependencies": {
     "@playwright/test": "^1.57.0",
     "@types/chrome": "^0.1.40",
     "eslint": "^10.3.0",
     "jest": "^29.0.0",
-    "jest-environment-jsdom": "^30.4.1"
+    "jest-environment-jsdom": "^30.4.1",
+    "prettier": "^3.8.3"
   },
   "jest": {
     "testEnvironment": "jsdom",

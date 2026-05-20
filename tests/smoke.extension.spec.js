@@ -67,12 +67,12 @@ async function expectPomodoroWorks(page) {
         chrome.storage.local.get(["pomodoroState"], (data) => {
           resolve(Boolean(data.pomodoroState && data.pomodoroState.isRunning));
         });
-      }),
+      })
   );
   await expect(page.locator("#pomodoroStatus")).toHaveText("Running");
 
   await page.waitForFunction(
-    () => document.querySelector("#pomodoroTime").textContent !== "25:00",
+    () => document.querySelector("#pomodoroTime").textContent !== "25:00"
   );
   const runningDisplay = await display.textContent();
 
@@ -83,11 +83,11 @@ async function expectPomodoroWorks(page) {
         chrome.storage.local.get(["pomodoroState"], (data) => {
           resolve(
             Boolean(
-              data.pomodoroState && data.pomodoroState.isRunning === false,
-            ),
+              data.pomodoroState && data.pomodoroState.isRunning === false
+            )
           );
         });
-      }),
+      })
   );
   await expect(page.locator("#pomodoroStatus")).toHaveText("Paused");
   await expect(display).toHaveText(runningDisplay);
@@ -108,11 +108,11 @@ async function expectPomodoroWorks(page) {
             Boolean(
               data.pomodoroState &&
               data.pomodoroState.remainingSeconds === 1500 &&
-              data.pomodoroState.isRunning === false,
-            ),
+              data.pomodoroState.isRunning === false
+            )
           );
         });
-      }),
+      })
   );
 
   await page.getByRole("button", { name: "Close" }).click();
@@ -155,7 +155,7 @@ test("FocusKit popup renders core features without console errors", async () => 
 
     await page.goto(`chrome-extension://${extensionId}/popup.html`);
     await expect(page).toHaveURL(
-      new RegExp(`^chrome-extension://${extensionId}/popup\\.html$`),
+      new RegExp(`^chrome-extension://${extensionId}/popup\\.html$`)
     );
     const body = page.locator("body");
     const popupSurface = page.locator(".app");
@@ -180,20 +180,20 @@ test("FocusKit popup renders core features without console errors", async () => 
     await page.getByRole("button", { name: "Focus" }).click();
     await expect(page.locator("#tab-focus.active .focus-card")).toHaveCount(3);
     await expect(
-      page.locator("#tab-focus.active .focus-card").first(),
+      page.locator("#tab-focus.active .focus-card").first()
     ).toBeVisible();
 
     await page.getByRole("button", { name: "Settings" }).click();
     await expect(page.locator("#tab-settings.active")).toBeVisible();
     await expect(
-      page.getByText("Notifications", { exact: true }),
+      page.getByText("Notifications", { exact: true })
     ).toBeVisible();
     await expect(
-      page.getByText("Sound effects", { exact: true }),
+      page.getByText("Sound effects", { exact: true })
     ).toBeVisible();
     await expect(page.getByText("Dark mode", { exact: true })).toBeVisible();
     await expect(
-      page.getByText("Auto-start timer", { exact: true }),
+      page.getByText("Auto-start timer", { exact: true })
     ).toHaveCount(0);
 
     const notifications = page.locator("#settingNotifications");
@@ -233,13 +233,13 @@ test("FocusKit popup renders core features without console errors", async () => 
     expectLightTheme(lightSettingRowColors);
     expect(luminance(lightTextColors.text)).toBeLessThan(80);
     expect(rgbBrightness(lightSurfaceColors.background)).toBeGreaterThan(
-      rgbBrightness(initialDarkSurfaceColors.background) + 80,
+      rgbBrightness(initialDarkSurfaceColors.background) + 80
     );
     expect(rgbBrightness(lightCardColors.background)).toBeGreaterThan(
-      rgbBrightness(initialDarkCardColors.background) + 80,
+      rgbBrightness(initialDarkCardColors.background) + 80
     );
     expect(rgbBrightness(lightSettingRowColors.background)).toBeGreaterThan(
-      rgbBrightness(darkSettingRowColors.background) + 80,
+      rgbBrightness(darkSettingRowColors.background) + 80
     );
     expect(lightTextColors.text).not.toBe(initialDarkTextColors.text);
 
@@ -252,11 +252,11 @@ test("FocusKit popup renders core features without console errors", async () => 
               resolve(
                 data.notifications === false &&
                   data.sound === true &&
-                  data.dark === false,
+                  data.dark === false
               );
-            },
+            }
           );
-        }),
+        })
     );
 
     await page.reload({ waitUntil: "domcontentloaded" });
@@ -274,7 +274,7 @@ test("FocusKit popup renders core features without console errors", async () => 
       () =>
         new Promise((resolve) => {
           chrome.storage.local.set({ dark: true }, resolve);
-        }),
+        })
     );
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.getByRole("button", { name: "Settings" }).click();
@@ -289,17 +289,17 @@ test("FocusKit popup renders core features without console errors", async () => 
     expectDarkTheme(restoredDarkRowColors);
     expect(luminance(restoredDarkTextColors.text)).toBeGreaterThan(220);
     expect(rgbBrightness(restoredDarkSurfaceColors.background)).toBeLessThan(
-      rgbBrightness(lightSurfaceColors.background) - 80,
+      rgbBrightness(lightSurfaceColors.background) - 80
     );
     expect(rgbBrightness(restoredDarkRowColors.background)).toBeLessThan(
-      rgbBrightness(lightSettingRowColors.background) - 80,
+      rgbBrightness(lightSettingRowColors.background) - 80
     );
 
     await page.evaluate(
       () =>
         new Promise((resolve) => {
           chrome.storage.local.set({ dark: false }, resolve);
-        }),
+        })
     );
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.getByRole("button", { name: "Settings" }).click();

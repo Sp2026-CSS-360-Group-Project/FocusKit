@@ -97,7 +97,7 @@ function handlePomodoroStart() {
     pomodoroState = startPomodoro(pomodoroState);
     renderPomodoro(pomodoroState);
     startPomodoroInterval();
-    chrome.storage.local.set({ [POMODORO_STORAGE_KEY]: pomodoroState });
+    persistPomodoroState(pomodoroState);
   } catch (e) {
     // ignore
   }
@@ -105,20 +105,23 @@ function handlePomodoroStart() {
 
 // Pause asks the background service worker to account for elapsed time.
 function handlePomodoroPause() {
-  sendBackgroundMessage({ action: "pomodoro:pause" }, (response) => {
-    handlePomodoroResponse(response);
-  });
-
   // Optimistic UI update: pause immediately in the popup while background
   // commits pause in storage.
   try {
     pomodoroState = pausePomodoro(pomodoroState);
     renderPomodoro(pomodoroState);
     stopPomodoroInterval();
-    chrome.storage.local.set({ [POMODORO_STORAGE_KEY]: pomodoroState });
+    persistPomodoroState(pomodoroState);
   } catch (e) {
     // ignore
   }
+
+  sendBackgroundMessage(
+    { action: "pomodoro:pause", state: pomodoroState },
+    (response) => {
+      handlePomodoroResponse(response);
+    }
+  );
 }
 
 // Reset clears the background alarm and returns the UI to the default state.
@@ -132,7 +135,7 @@ function handlePomodoroReset() {
     pomodoroState = resetPomodoro();
     renderPomodoro(pomodoroState);
     stopPomodoroInterval();
-    chrome.storage.local.set({ [POMODORO_STORAGE_KEY]: pomodoroState });
+    persistPomodoroState(pomodoroState);
   } catch (e) {
     // ignore
   }
@@ -144,6 +147,7 @@ function startPomodoroInterval() {
   pomodoroIntervalId = setInterval(() => {
     pomodoroState = tickPomodoro(pomodoroState);
     renderPomodoro(pomodoroState);
+    persistPomodoroState(pomodoroState);
 
     if (!pomodoroState.isRunning) {
       stopPomodoroInterval();
@@ -161,6 +165,15 @@ function stopPomodoroInterval() {
 
 // Load current state from the background so reopened popups reflect elapsed time.
 function loadPomodoroState() {
+  chrome.storage.local.get([POMODORO_STORAGE_KEY], (data) => {
+    if (data && data[POMODORO_STORAGE_KEY]) {
+      handlePomodoroResponse({
+        success: true,
+        state: data[POMODORO_STORAGE_KEY],
+      });
+    }
+  });
+
   sendBackgroundMessage({ action: "pomodoro:getState" }, (response) => {
     handlePomodoroResponse(response);
   });
@@ -193,11 +206,16 @@ function sendBackgroundMessage(message, callback) {
 function renderPomodoro(state) {
   getPomodoroPanel();
   document.getElementById("pomodoroTime").textContent = formatTime(
-    state.remainingSeconds,
+    state.remainingSeconds
   );
   document.getElementById("pomodoroStatus").textContent = state.isRunning
     ? "Running"
     : "Paused";
+}
+
+// Keep storage aligned with the visible popup countdown so reopening restores it.
+function persistPomodoroState(state) {
+  chrome.storage.local.set({ [POMODORO_STORAGE_KEY]: state });
 }
 
 // Expose the launcher for tools.js in the browser runtime.

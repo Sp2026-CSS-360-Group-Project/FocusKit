@@ -65,7 +65,7 @@ describe("Pomodoro timer state", () => {
     const afterFiveSeconds = tickPomodoro(running, 6000);
 
     expect(afterFiveSeconds.remainingSeconds).toBe(
-      POMODORO_DURATION_SECONDS - 5,
+      POMODORO_DURATION_SECONDS - 5
     );
     expect(afterFiveSeconds.isRunning).toBe(true);
   });
