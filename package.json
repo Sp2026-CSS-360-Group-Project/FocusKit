@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "FocusKit Manifest V3 Chrome productivity extension",
   "scripts": {
-    "test": "jest --runInBand",
+    "test": "jest --runInBand && playwright test tests/smoke.extension.spec.js",
     "smoke": "playwright test tests/smoke.extension.spec.js",
     "check": "npm test && npm run smoke"
   },
@@ -11,7 +11,7 @@
     "@playwright/test": "^1.57.0",
     "@types/chrome": "^0.1.40",
     "jest": "^29.0.0",
-    "jest-environment-jsdom": "^29.0.0"
+    "jest-environment-jsdom": "^30.4.1"
   },
   "jest": {
     "testEnvironment": "jsdom",
