@@ -5,34 +5,20 @@ if (
   typeof importScripts === "function" &&
   typeof FocusKitPomodoroState === "undefined"
 ) {
-  const hasRuntimeUrl =
-    typeof chrome !== "undefined" &&
-    chrome.runtime &&
-    typeof chrome.runtime.getURL === "function";
-  const pomodoroUrl = hasRuntimeUrl
-    ? chrome.runtime.getURL("tools/pomodor-timer/pomodoroState.js")
-    : "../tools/pomodor-timer/pomodoroState.js";
-  const focusModesUrl = hasRuntimeUrl
-    ? chrome.runtime.getURL("tools/focus-modes/focusModes.js")
-    : "../tools/focus-modes/focusModes.js";
-
-  importScripts(pomodoroUrl, focusModesUrl);
+  importScripts("../tools/pomodor-timer/pomodoroState.js");
+  importScripts("../tools/focus-modes/focusModes.js");
 }
 
 // Reuse shared state helpers in Jest without duplicating timer rules in the worker.
 const pomodoroHelpers =
   typeof FocusKitPomodoroState !== "undefined"
     ? FocusKitPomodoroState
-    : typeof require === "function"
-      ? require("../tools/pomodor-timer/pomodoroState.js")
-      : null;
+    : require("../tools/pomodor-timer/pomodoroState.js");
 
 const focusModeHelpers =
   typeof FocusKitModes !== "undefined"
     ? FocusKitModes
-    : typeof require === "function"
-      ? require("../tools/focus-modes/focusModes.js")
-      : null;
+    : require("../tools/focus-modes/focusModes.js");
 
 // Keep background command names centralized so popup and tests use one message surface.
 const POMODORO_ALARM_NAME = "focuskit:pomodoro";
