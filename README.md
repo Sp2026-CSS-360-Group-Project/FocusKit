@@ -110,6 +110,22 @@ Health check URL:
 
 http://localhost:5000/api/health
 
+## Manual Pomodoro Completion Test
+
+The Pomodoro alarm sound is a tiny generated local WAV file stored at
+`assets/sounds/pomodoro-alarm.wav`.
+
+To manually test Pomodoro completion:
+
+1. Open Chrome and go to `chrome://extensions`.
+2. Turn on Developer mode and load this repository with Load unpacked.
+3. Open FocusKit, go to Settings, and enable Notifications and Sound effects.
+4. Open Tools, launch Pomodoro, and start a short/test Pomodoro if one is
+   available.
+5. Let the timer reach `0:00`.
+6. Confirm that a Chrome notification appears.
+7. Confirm that the local Pomodoro alarm sound plays.
+
 ## PR Links Accepted In The Past Week
 
 - PR #20:

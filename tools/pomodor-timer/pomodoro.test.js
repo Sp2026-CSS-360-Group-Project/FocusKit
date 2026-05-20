@@ -55,6 +55,7 @@ describe("Pomodoro timer state", () => {
       remainingSeconds: 1200,
       isRunning: false,
       lastUpdatedAt: 5000,
+      completionFired: false,
     };
 
     expect(restorePomodoroState(saved, 10000)).toEqual(saved);

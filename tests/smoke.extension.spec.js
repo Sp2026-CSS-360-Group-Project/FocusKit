@@ -120,6 +120,65 @@ async function expectPomodoroWorks(page) {
   await expect(page.locator("#toolsList")).toBeVisible();
 }
 
+async function expectPomodoroCompletionObservable(page) {
+  await page.getByRole("button", { name: "Tools" }).click();
+  await page.getByRole("button", { name: "Launch Pomodoro" }).click();
+  await page.evaluate(
+    () =>
+      new Promise((resolve) => {
+        chrome.storage.local.set(
+          {
+            notifications: true,
+            sound: true,
+            pomodoroState: {
+              remainingSeconds: 1,
+              isRunning: false,
+              lastUpdatedAt: Date.now(),
+              completionFired: false,
+            },
+          },
+          resolve
+        );
+      })
+  );
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: "Launch Pomodoro" }).click();
+  await expect(page.locator("#pomodoroTime")).toHaveText("00:01");
+
+  await page.getByRole("button", { name: "Start" }).click();
+  await page.waitForFunction(
+    () =>
+      new Promise((resolve) => {
+        chrome.storage.local.get(["pomodoroState"], (data) => {
+          resolve(
+            Boolean(
+              data.pomodoroState &&
+              data.pomodoroState.remainingSeconds === 0 &&
+              data.pomodoroState.isRunning === false &&
+              data.pomodoroState.completionFired === true
+            )
+          );
+        });
+      }),
+    null,
+    { timeout: 5000 }
+  );
+  await expect(page.locator("#pomodoroTime")).toHaveText("00:00");
+
+  await page.getByRole("button", { name: "Reset" }).click();
+  await page.getByRole("button", { name: "Close" }).click();
+  await page.evaluate(
+    () =>
+      new Promise((resolve) => {
+        chrome.storage.local.set(
+          { notifications: true, sound: false },
+          resolve
+        );
+      })
+  );
+  await expect(page.locator("#toolsList")).toBeVisible();
+}
+
 test("FocusKit popup renders core features without console errors", async () => {
   const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "focuskit-smoke-"));
   const context = await chromium.launchPersistentContext(userDataDir, {
@@ -169,6 +228,7 @@ test("FocusKit popup renders core features without console errors", async () => 
     await expect(page.getByText("Iris", { exact: true })).toBeVisible();
     await expect(page.getByText("Eisenhower", { exact: true })).toBeVisible();
     await expectPomodoroWorks(page);
+    await expectPomodoroCompletionObservable(page);
 
     const initialDarkSurfaceColors = await readComputedColors(popupSurface);
     const initialDarkCardColors = await readComputedColors(firstToolCard);
@@ -196,8 +256,6 @@ test("FocusKit popup renders core features without console errors", async () => 
       page.getByText("Auto-start timer", { exact: true })
     ).toHaveCount(0);
 
-    const notifications = page.locator("#settingNotifications");
-    const sound = page.locator("#settingSound");
     const dark = page.locator("#settingDark");
     const darkModeSettingRow = page.locator(".setting-row", {
       hasText: "Dark mode",
@@ -260,11 +318,21 @@ test("FocusKit popup renders core features without console errors", async () => 
     );
 
     await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() =>
+      new Promise((resolve) => {
+        chrome.storage.local.get(["notifications", "sound", "dark"], resolve);
+      }).then(
+        (data) =>
+          data.notifications === false &&
+          data.sound === true &&
+          data.dark === false
+      )
+    );
     await page.getByRole("button", { name: "Settings" }).click();
 
-    await expect(notifications).not.toBeChecked();
-    await expect(sound).toBeChecked();
-    await expect(dark).not.toBeChecked();
+    await expect(page.locator("#settingNotifications")).not.toBeChecked();
+    await expect(page.locator("#settingSound")).toBeChecked();
+    await expect(page.locator("#settingDark")).not.toBeChecked();
     await expect(body).toHaveClass(/theme-light/);
     await expect(popupSurface).toHaveClass(/theme-light/);
     expectLightTheme(await readComputedColors(popupSurface));

@@ -11,6 +11,7 @@
       remainingSeconds: POMODORO_DURATION_SECONDS,
       isRunning: false,
       lastUpdatedAt: now,
+      completionFired: false,
     };
   }
 
@@ -44,6 +45,7 @@
       remainingSeconds,
       isRunning: remainingSeconds > 0,
       lastUpdatedAt: now,
+      completionFired: Boolean(state.completionFired),
     };
   }
 
@@ -55,6 +57,7 @@
       ...currentState,
       isRunning: currentState.remainingSeconds > 0,
       lastUpdatedAt: now,
+      completionFired: false,
     };
   }
 
@@ -91,6 +94,7 @@
           typeof savedState.lastUpdatedAt === "number"
             ? savedState.lastUpdatedAt
             : now,
+        completionFired: Boolean(savedState.completionFired),
       },
       now
     );

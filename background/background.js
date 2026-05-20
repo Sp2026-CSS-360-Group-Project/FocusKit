@@ -22,6 +22,7 @@ const focusModeHelpers =
 
 // Keep background command names centralized so popup and tests use one message surface.
 const POMODORO_ALARM_NAME = "focuskit:pomodoro";
+const POMODORO_ALARM_SOUND_PATH = "assets/sounds/pomodoro-alarm.wav";
 const POMODORO_COMPLETE_NOTIFICATION_ID = "focuskit-pomodoro-complete";
 // Separate id prevents the break notification overwriting the complete notification.
 const POMODORO_BREAK_NOTIFICATION_ID = "focuskit-pomodoro-break";
@@ -147,13 +148,20 @@ async function handleAlarm(alarm) {
   if (!nextState.isRunning) {
     await clearPomodoroAlarm();
 
-    if (previousState.isRunning && previousState.remainingSeconds > 0) {
-      // Notify for session end. Then check if a break phase is starting.
-      await notifyPomodoroComplete();
+    if (
+      previousState.isRunning &&
+      previousState.remainingSeconds > 0 &&
+      !previousState.completionFired
+    ) {
+      const completedState = { ...nextState, completionFired: true };
+      await setStorage({ [POMODORO_STORAGE_KEY]: completedState });
+      broadcastPomodoroState(completedState);
+
+      await handlePomodoroComplete();
 
       // If pomodoroState transitions into a break after completion, notify break start.
       // A break phase is indicated when the next cycle sets isBreak = true.
-      if (nextState.isBreak) {
+      if (completedState.isBreak) {
         await notifyBreakStart();
       }
     }
@@ -224,14 +232,21 @@ function clearPomodoroAlarm() {
   });
 }
 
-// Notify the user when a focus sprint ends. Skipped if notifications are disabled.
-async function notifyPomodoroComplete() {
-  const settings = await getStorage(["notifications"]);
+// Dispatch all user-facing completion effects, honoring Settings toggles.
+async function handlePomodoroComplete() {
+  const settings = await getStorage(["notifications", "sound"]);
 
-  if (settings.notifications === false) {
-    return;
+  if (settings.notifications !== false) {
+    await notifyPomodoroComplete();
   }
 
+  if (settings.sound === true) {
+    await playPomodoroAlarmSound();
+  }
+}
+
+// Notify the user when a focus sprint ends. Skipped if notifications are disabled.
+async function notifyPomodoroComplete() {
   // Clear any stale break notification before showing the complete one.
   await clearNotification(POMODORO_BREAK_NOTIFICATION_ID);
 
@@ -250,6 +265,49 @@ async function notifyPomodoroComplete() {
       },
       () => resolve()
     );
+  });
+}
+
+// Ask an MV3 offscreen document to play the local Pomodoro alarm sound.
+async function playPomodoroAlarmSound() {
+  if (!chrome.offscreen || !chrome.runtime || !chrome.runtime.sendMessage) {
+    return;
+  }
+
+  await ensureAlarmOffscreenDocument();
+
+  await new Promise((resolve) => {
+    chrome.runtime.sendMessage(
+      {
+        action: "pomodoro:playAlarmSound",
+        soundPath:
+          typeof chrome.runtime.getURL === "function"
+            ? chrome.runtime.getURL(POMODORO_ALARM_SOUND_PATH)
+            : POMODORO_ALARM_SOUND_PATH,
+      },
+      () => {
+        void chrome.runtime.lastError;
+        resolve();
+      }
+    );
+  });
+}
+
+// Create the offscreen audio page once, then reuse it for future sessions.
+async function ensureAlarmOffscreenDocument() {
+  const url = "offscreen/pomodoro-alarm.html";
+
+  if (
+    typeof chrome.offscreen.hasDocument === "function" &&
+    (await chrome.offscreen.hasDocument())
+  ) {
+    return;
+  }
+
+  await chrome.offscreen.createDocument({
+    url,
+    reasons: [chrome.offscreen.Reason.AUDIO_PLAYBACK],
+    justification: "Play the Pomodoro completion alarm sound.",
   });
 }
 
@@ -398,6 +456,7 @@ if (typeof module !== "undefined") {
   module.exports = {
     MESSAGE_ACTIONS,
     POMODORO_ALARM_NAME,
+    POMODORO_ALARM_SOUND_PATH,
     POMODORO_BREAK_NOTIFICATION_ID,
     POMODORO_COMPLETE_NOTIFICATION_ID,
     applyFocusMode,
@@ -405,8 +464,10 @@ if (typeof module !== "undefined") {
     handleInstalled,
     handleMessage,
     handleMessageAsync,
+    handlePomodoroComplete,
     handleStartup,
     notifyBreakStart,
     notifyPomodoroComplete,
+    playPomodoroAlarmSound,
   };
 }

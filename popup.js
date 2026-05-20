@@ -15,6 +15,7 @@ document.addEventListener("DOMContentLoaded", () => {
   renderTools();
   loadAndRenderFocusModes();
   loadSavedState();
+  window.requestAnimationFrame(loadSavedState);
   setupSettingsPersistence();
   listenForBackgroundMessages();
 });
@@ -35,6 +36,10 @@ function setupTabs() {
       document
         .getElementById(`tab-${button.dataset.tab}`)
         .classList.add("active");
+
+      if (button.dataset.tab === "settings") {
+        loadSavedState();
+      }
     });
   });
 }

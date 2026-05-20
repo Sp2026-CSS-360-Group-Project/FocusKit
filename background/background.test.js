@@ -31,13 +31,28 @@ function createChromeMock(initialStorage = {}) {
       },
     },
     notifications: {
+      clear: jest.fn((id, callback) => {
+        if (callback) {
+          callback(true);
+        }
+      }),
       create: jest.fn((id, options, callback) => {
         if (callback) {
           callback(id);
         }
       }),
     },
+    offscreen: {
+      createDocument: jest.fn(() => Promise.resolve()),
+      hasDocument: jest.fn(() => Promise.resolve(false)),
+      Reason: {
+        AUDIO_PLAYBACK: "AUDIO_PLAYBACK",
+      },
+    },
     runtime: {
+      getURL: jest.fn(
+        (resourcePath) => `chrome-extension://test/${resourcePath}`
+      ),
       lastError: null,
       onInstalled: {
         addListener: jest.fn((listener) => listeners.installed.push(listener)),
@@ -116,7 +131,13 @@ describe("manifest background registration", () => {
     expect(manifest.manifest_version).toBe(3);
     expect(manifest.background.service_worker).toBe("background/background.js");
     expect(manifest.permissions).toEqual(
-      expect.arrayContaining(["alarms", "notifications", "storage", "tabs"])
+      expect.arrayContaining([
+        "alarms",
+        "notifications",
+        "offscreen",
+        "storage",
+        "tabs",
+      ])
     );
   });
 });
@@ -177,6 +198,7 @@ describe("FocusKit background service worker", () => {
       remainingSeconds: 1499,
       isRunning: false,
       lastUpdatedAt: 99000,
+      completionFired: false,
     };
     const { chrome } = loadBackground({ pomodoroState: savedState });
 
@@ -218,14 +240,16 @@ describe("FocusKit background service worker", () => {
     Date.now.mockRestore();
   });
 
-  test("fires a completion notification and broadcasts state when the alarm expires", async () => {
+  test("fires a completion notification and requests sound when the alarm expires", async () => {
     jest.spyOn(Date, "now").mockReturnValue(2000000);
     const { chrome } = loadBackground({
       notifications: true,
+      sound: true,
       pomodoroState: {
         remainingSeconds: 1,
         isRunning: true,
         lastUpdatedAt: 1000,
+        completionFired: false,
       },
     });
 
@@ -235,6 +259,7 @@ describe("FocusKit background service worker", () => {
       remainingSeconds: 0,
       isRunning: false,
       lastUpdatedAt: 2000000,
+      completionFired: true,
     });
     expect(chrome.notifications.create).toHaveBeenCalledWith(
       "focuskit-pomodoro-complete",
@@ -251,6 +276,113 @@ describe("FocusKit background service worker", () => {
       },
       expect.any(Function)
     );
+    expect(chrome.offscreen.createDocument).toHaveBeenCalledWith({
+      url: "offscreen/pomodoro-alarm.html",
+      reasons: ["AUDIO_PLAYBACK"],
+      justification: "Play the Pomodoro completion alarm sound.",
+    });
+    expect(chrome.runtime.sendMessage).toHaveBeenCalledWith(
+      {
+        action: "pomodoro:playAlarmSound",
+        soundPath: "chrome-extension://test/assets/sounds/pomodoro-alarm.wav",
+      },
+      expect.any(Function)
+    );
+
+    Date.now.mockRestore();
+  });
+
+  test("does not create a completion notification when notifications are disabled", async () => {
+    jest.spyOn(Date, "now").mockReturnValue(2000000);
+    const { chrome } = loadBackground({
+      notifications: false,
+      sound: true,
+      pomodoroState: {
+        remainingSeconds: 1,
+        isRunning: true,
+        lastUpdatedAt: 1000,
+        completionFired: false,
+      },
+    });
+
+    await chrome.__listeners.alarms[0]({ name: "focuskit:pomodoro" });
+
+    expect(chrome.notifications.create).not.toHaveBeenCalled();
+    expect(chrome.offscreen.createDocument).toHaveBeenCalledTimes(1);
+
+    Date.now.mockRestore();
+  });
+
+  test("does not request sound playback when sound effects are disabled", async () => {
+    jest.spyOn(Date, "now").mockReturnValue(2000000);
+    const { chrome } = loadBackground({
+      notifications: true,
+      sound: false,
+      pomodoroState: {
+        remainingSeconds: 1,
+        isRunning: true,
+        lastUpdatedAt: 1000,
+        completionFired: false,
+      },
+    });
+
+    await chrome.__listeners.alarms[0]({ name: "focuskit:pomodoro" });
+
+    expect(chrome.notifications.create).toHaveBeenCalledTimes(1);
+    expect(chrome.offscreen.createDocument).not.toHaveBeenCalled();
+    expect(chrome.runtime.sendMessage).not.toHaveBeenCalledWith(
+      expect.objectContaining({ action: "pomodoro:playAlarmSound" }),
+      expect.any(Function)
+    );
+
+    Date.now.mockRestore();
+  });
+
+  test("completion notification and sound fire only once per completed session", async () => {
+    jest.spyOn(Date, "now").mockReturnValue(2000000);
+    const { chrome } = loadBackground({
+      notifications: true,
+      sound: true,
+      pomodoroState: {
+        remainingSeconds: 1,
+        isRunning: true,
+        lastUpdatedAt: 1000,
+        completionFired: false,
+      },
+    });
+
+    await chrome.__listeners.alarms[0]({ name: "focuskit:pomodoro" });
+    await chrome.__listeners.alarms[0]({ name: "focuskit:pomodoro" });
+
+    expect(chrome.notifications.create).toHaveBeenCalledTimes(1);
+    expect(chrome.offscreen.createDocument).toHaveBeenCalledTimes(1);
+
+    Date.now.mockRestore();
+  });
+
+  test("reset and start clear the completion guard for a future session", async () => {
+    jest.spyOn(Date, "now").mockReturnValue(3000000);
+    const { chrome } = loadBackground({
+      pomodoroState: {
+        remainingSeconds: 0,
+        isRunning: false,
+        lastUpdatedAt: 2000000,
+        completionFired: true,
+      },
+    });
+
+    const reset = await sendMessage(chrome, { action: "pomodoro:reset" });
+    expect(reset.state.completionFired).toBe(false);
+
+    chrome.__storage.pomodoroState = {
+      remainingSeconds: 10,
+      isRunning: false,
+      lastUpdatedAt: 2999000,
+      completionFired: true,
+    };
+    const started = await sendMessage(chrome, { action: "pomodoro:start" });
+    expect(started.state.completionFired).toBe(false);
+    expect(started.state.isRunning).toBe(true);
 
     Date.now.mockRestore();
   });
