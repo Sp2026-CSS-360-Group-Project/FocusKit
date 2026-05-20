@@ -44,13 +44,8 @@ body {
   min-height: 550px;
   background: var(--bg);
   color: var(--text);
-<<<<<<< Updated upstream
-  font-family: "DM Mono", monospace;
-  font-size: 13px;
-=======
   font-family: 'Sora', sans-serif;
   font-size: 15px;
->>>>>>> Stashed changes
   overflow: hidden;
 }
 
@@ -71,27 +66,9 @@ body {
   border-bottom: 1px solid var(--border);
 }
 
-<<<<<<< Updated upstream
-.logo {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.logo-icon {
-  font-size: 18px;
-  color: var(--accent);
-}
-.logo-text {
-  font-family: "Syne", sans-serif;
-  font-weight: 800;
-  font-size: 16px;
-  letter-spacing: -0.5px;
-}
-=======
 .logo { display: flex; align-items: center; gap: 8px; }
 .logo-icon { font-size: 18px; color: var(--accent); }
 .logo-text { font-family: 'Sora', sans-serif; font-weight: 800; font-size: 16px; letter-spacing: -0.5px; }
->>>>>>> Stashed changes
 
 .status-dot {
   width: 8px;
@@ -117,13 +94,8 @@ body {
   background: none;
   border: none;
   color: var(--muted);
-<<<<<<< Updated upstream
-  font-family: "DM Mono", monospace;
-  font-size: 11px;
-=======
   font-family: 'Sora', sans-serif;
   font-size: 13px;
->>>>>>> Stashed changes
   font-weight: 500;
   padding: 10px 4px;
   cursor: pointer;
@@ -213,13 +185,8 @@ body {
   border: none;
   border-radius: 6px;
   padding: 5px 10px;
-<<<<<<< Updated upstream
-  font-family: "DM Mono", monospace;
-  font-size: 10px;
-=======
   font-family: 'Sora', sans-serif;
   font-size: 13px;
->>>>>>> Stashed changes
   font-weight: 500;
   cursor: pointer;
   transition: opacity 0.2s;
@@ -254,11 +221,7 @@ body {
 
 .pomodoro-title {
   color: var(--text);
-<<<<<<< Updated upstream
-  font-family: "Syne", sans-serif;
-=======
   font-family: 'Sora', sans-serif;
->>>>>>> Stashed changes
   font-size: 18px;
   line-height: 1;
 }
@@ -274,11 +237,7 @@ body {
 
 .pomodoro-time {
   color: var(--text);
-<<<<<<< Updated upstream
-  font-family: "DM Mono", monospace;
-=======
   font-family: 'Sora', sans-serif;
->>>>>>> Stashed changes
   font-size: 44px;
   font-weight: 500;
   letter-spacing: -0.08em;
@@ -298,13 +257,8 @@ body {
   border: 1px solid transparent;
   border-radius: 8px;
   padding: 8px 10px;
-<<<<<<< Updated upstream
-  font-family: "DM Mono", monospace;
-  font-size: 11px;
-=======
   font-family: 'Sora', sans-serif;
   font-size: 13px;
->>>>>>> Stashed changes
   cursor: pointer;
 }
 
@@ -335,32 +289,10 @@ body {
   background: var(--selected-bg);
 }
 
-<<<<<<< Updated upstream
-.focus-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 3px;
-}
-.focus-icon {
-  font-size: 14px;
-}
-.focus-name {
-  font-family: "Syne", sans-serif;
-  font-weight: 600;
-  font-size: 12px;
-}
-.focus-desc {
-  font-size: 10px;
-  color: var(--muted);
-  padding-left: 22px;
-}
-=======
 .focus-header { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
 .focus-icon { font-size: 14px; }
 .focus-name { font-family: 'Sora', sans-serif; font-weight: 600; font-size: 12px; }
 .focus-desc { font-size: 11px; color: var(--muted); padding-left: 22px; }
->>>>>>> Stashed changes
 
 /* Settings */
 .setting-row {
@@ -421,8 +353,5 @@ body {
   transform: translateX(16px);
   background: var(--accent);
 }
-<<<<<<< Updated upstream
-=======
 .toggle input:checked + .slider { background: var(--toggle-on-bg); }
 .toggle input:checked + .slider::before { transform: translateX(16px); background: var(--accent); }
->>>>>>> Stashed changes
