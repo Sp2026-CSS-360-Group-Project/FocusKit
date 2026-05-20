@@ -33,14 +33,17 @@ const MESSAGE_ACTIONS = {
   pomodoroStart: "pomodoro:start",
   pomodoroPause: "pomodoro:pause",
   pomodoroReset: "pomodoro:reset",
+  pomodoroSetDuration: "pomodoro:setDuration",
   focusSetMode: "focus:setMode",
 };
 
 const {
   POMODORO_STORAGE_KEY,
+  normalizePomodoroDurationMinutes,
   pausePomodoro,
   resetPomodoro,
   restorePomodoroState,
+  setPomodoroDuration,
   startPomodoro,
   tickPomodoro,
 } = pomodoroHelpers;
@@ -118,12 +121,17 @@ async function handleMessageAsync(message) {
   }
 
   if (message.action === MESSAGE_ACTIONS.pomodoroReset) {
-    const state = resetPomodoro();
+    const currentState = await readPomodoroState();
+    const state = resetPomodoro(currentState);
     await setStorage({ [POMODORO_STORAGE_KEY]: state });
     await clearPomodoroAlarm();
     broadcastPomodoroState(state);
 
     return { success: true, state };
+  }
+
+  if (message.action === MESSAGE_ACTIONS.pomodoroSetDuration) {
+    return applyPomodoroDuration(message.minutes);
   }
 
   if (message.action === MESSAGE_ACTIONS.focusSetMode) {
@@ -175,6 +183,30 @@ async function getCurrentPomodoroState() {
   await syncPomodoroAlarm(state);
 
   return state;
+}
+
+// Apply a user-selected paused Pomodoro duration.
+async function applyPomodoroDuration(minutes) {
+  if (!normalizePomodoroDurationMinutes(minutes)) {
+    return { success: false, error: "Invalid Pomodoro duration" };
+  }
+
+  const currentState = await readPomodoroState();
+
+  if (currentState.isRunning) {
+    return {
+      success: false,
+      error: "Cannot change duration while Pomodoro runs",
+      state: currentState,
+    };
+  }
+
+  const state = setPomodoroDuration(currentState, minutes);
+  await setStorage({ [POMODORO_STORAGE_KEY]: state });
+  await clearPomodoroAlarm();
+  broadcastPomodoroState(state);
+
+  return { success: true, state };
 }
 
 // Apply a timer transition, persist it, update alarms, and inform open popup views.
@@ -459,6 +491,7 @@ if (typeof module !== "undefined") {
     POMODORO_ALARM_SOUND_PATH,
     POMODORO_BREAK_NOTIFICATION_ID,
     POMODORO_COMPLETE_NOTIFICATION_ID,
+    applyPomodoroDuration,
     applyFocusMode,
     handleAlarm,
     handleInstalled,

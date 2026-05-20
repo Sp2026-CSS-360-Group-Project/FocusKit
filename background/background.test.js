@@ -180,6 +180,7 @@ describe("FocusKit background service worker", () => {
     const paused = await sendMessage(chrome, { action: "pomodoro:pause" });
     expect(paused.state.isRunning).toBe(false);
     expect(paused.state.remainingSeconds).toBe(1440);
+    expect(paused.state.durationMinutes).toBe(25);
     expect(chrome.alarms.clear).toHaveBeenCalledWith(
       "focuskit:pomodoro",
       expect.any(Function)
@@ -187,7 +188,94 @@ describe("FocusKit background service worker", () => {
 
     const reset = await sendMessage(chrome, { action: "pomodoro:reset" });
     expect(reset.state.remainingSeconds).toBe(1500);
+    expect(reset.state.durationMinutes).toBe(25);
     expect(reset.state.isRunning).toBe(false);
+
+    Date.now.mockRestore();
+  });
+
+  test("changes Pomodoro duration while paused", async () => {
+    jest.spyOn(Date, "now").mockReturnValue(1000);
+    const { chrome } = loadBackground();
+
+    const response = await sendMessage(chrome, {
+      action: "pomodoro:setDuration",
+      minutes: 5,
+    });
+
+    expect(response.success).toBe(true);
+    expect(response.state.remainingSeconds).toBe(300);
+    expect(response.state.durationMinutes).toBe(5);
+    expect(response.state.isRunning).toBe(false);
+    expect(chrome.__storage.pomodoroState).toEqual(response.state);
+
+    Date.now.mockRestore();
+  });
+
+  test("rejects Pomodoro duration changes while running", async () => {
+    jest.spyOn(Date, "now").mockReturnValue(1000);
+    const { chrome } = loadBackground();
+
+    await sendMessage(chrome, { action: "pomodoro:start" });
+    const response = await sendMessage(chrome, {
+      action: "pomodoro:setDuration",
+      minutes: 5,
+    });
+
+    expect(response.success).toBe(false);
+    expect(response.error).toBe("Cannot change duration while Pomodoro runs");
+    expect(chrome.__storage.pomodoroState.durationMinutes).toBe(25);
+    expect(chrome.__storage.pomodoroState.isRunning).toBe(true);
+
+    Date.now.mockRestore();
+  });
+
+  test("rejects invalid Pomodoro durations", async () => {
+    const { chrome } = loadBackground();
+
+    for (const minutes of [0, -1, "", "abc", 181]) {
+      const response = await sendMessage(chrome, {
+        action: "pomodoro:setDuration",
+        minutes,
+      });
+
+      expect(response.success).toBe(false);
+      expect(response.error).toBe("Invalid Pomodoro duration");
+    }
+  });
+
+  test("reset returns to the selected Pomodoro duration", async () => {
+    jest.spyOn(Date, "now").mockReturnValue(1000);
+    const { chrome } = loadBackground();
+
+    await sendMessage(chrome, { action: "pomodoro:setDuration", minutes: 90 });
+    const reset = await sendMessage(chrome, { action: "pomodoro:reset" });
+
+    expect(reset.success).toBe(true);
+    expect(reset.state.remainingSeconds).toBe(5400);
+    expect(reset.state.durationMinutes).toBe(90);
+
+    Date.now.mockRestore();
+  });
+
+  test("custom Pomodoro duration persists and restores", async () => {
+    jest.spyOn(Date, "now").mockReturnValue(100000);
+    const savedState = {
+      remainingSeconds: 300,
+      durationMinutes: 5,
+      isRunning: false,
+      lastUpdatedAt: 99000,
+      completionFired: false,
+    };
+    const { chrome } = loadBackground({ pomodoroState: savedState });
+
+    const response = await sendMessage(chrome, {
+      action: "pomodoro:getState",
+    });
+
+    expect(response.success).toBe(true);
+    expect(response.state).toEqual(savedState);
+    expect(chrome.__storage.pomodoroState).toEqual(savedState);
 
     Date.now.mockRestore();
   });
@@ -196,6 +284,7 @@ describe("FocusKit background service worker", () => {
     jest.spyOn(Date, "now").mockReturnValue(100000);
     const savedState = {
       remainingSeconds: 1499,
+      durationMinutes: 25,
       isRunning: false,
       lastUpdatedAt: 99000,
       completionFired: false,
@@ -218,6 +307,7 @@ describe("FocusKit background service worker", () => {
     const { chrome } = loadBackground({
       pomodoroState: {
         remainingSeconds: 1500,
+        durationMinutes: 25,
         isRunning: true,
         lastUpdatedAt: 1000,
       },
@@ -227,6 +317,7 @@ describe("FocusKit background service worker", () => {
       action: "pomodoro:pause",
       state: {
         remainingSeconds: 1499,
+        durationMinutes: 25,
         isRunning: false,
         lastUpdatedAt: 199000,
       },
@@ -247,6 +338,7 @@ describe("FocusKit background service worker", () => {
       sound: true,
       pomodoroState: {
         remainingSeconds: 1,
+        durationMinutes: 25,
         isRunning: true,
         lastUpdatedAt: 1000,
         completionFired: false,
@@ -257,6 +349,7 @@ describe("FocusKit background service worker", () => {
 
     expect(chrome.__storage.pomodoroState).toEqual({
       remainingSeconds: 0,
+      durationMinutes: 25,
       isRunning: false,
       lastUpdatedAt: 2000000,
       completionFired: true,
@@ -299,6 +392,7 @@ describe("FocusKit background service worker", () => {
       sound: true,
       pomodoroState: {
         remainingSeconds: 1,
+        durationMinutes: 25,
         isRunning: true,
         lastUpdatedAt: 1000,
         completionFired: false,
@@ -320,6 +414,7 @@ describe("FocusKit background service worker", () => {
       sound: false,
       pomodoroState: {
         remainingSeconds: 1,
+        durationMinutes: 25,
         isRunning: true,
         lastUpdatedAt: 1000,
         completionFired: false,
@@ -345,6 +440,7 @@ describe("FocusKit background service worker", () => {
       sound: true,
       pomodoroState: {
         remainingSeconds: 1,
+        durationMinutes: 25,
         isRunning: true,
         lastUpdatedAt: 1000,
         completionFired: false,
@@ -365,6 +461,7 @@ describe("FocusKit background service worker", () => {
     const { chrome } = loadBackground({
       pomodoroState: {
         remainingSeconds: 0,
+        durationMinutes: 25,
         isRunning: false,
         lastUpdatedAt: 2000000,
         completionFired: true,
@@ -376,6 +473,7 @@ describe("FocusKit background service worker", () => {
 
     chrome.__storage.pomodoroState = {
       remainingSeconds: 10,
+      durationMinutes: 25,
       isRunning: false,
       lastUpdatedAt: 2999000,
       completionFired: true,

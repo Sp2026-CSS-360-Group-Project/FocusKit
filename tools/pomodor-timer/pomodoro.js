@@ -7,12 +7,15 @@ const pomodoroStateHelpers =
     : require("./pomodoroState.js");
 
 const {
+  POMODORO_MAX_DURATION_MINUTES,
   POMODORO_STORAGE_KEY,
   createInitialPomodoroState,
   formatTime,
+  normalizePomodoroDurationMinutes,
   pausePomodoro,
   resetPomodoro,
   restorePomodoroState,
+  setPomodoroDuration,
   startPomodoro,
   tickPomodoro,
 } = pomodoroStateHelpers;
@@ -59,6 +62,18 @@ function getPomodoroPanel() {
       <span class="pomodoro-status" id="pomodoroStatus">Paused</span>
     </div>
     <div class="pomodoro-time" id="pomodoroTime">25:00</div>
+    <label class="pomodoro-duration" for="pomodoroDuration">
+      <span>Duration minutes:</span>
+      <input
+        id="pomodoroDuration"
+        type="number"
+        min="1"
+        max="${POMODORO_MAX_DURATION_MINUTES}"
+        step="1"
+        value="25"
+        aria-label="Duration minutes"
+      />
+    </label>
     <div class="pomodoro-actions">
       <button class="pomodoro-button" type="button" id="pomodoroStart">Start</button>
       <button class="pomodoro-button" type="button" id="pomodoroPause">Pause</button>
@@ -78,6 +93,12 @@ function getPomodoroPanel() {
   panel
     .querySelector("#pomodoroReset")
     .addEventListener("click", handlePomodoroReset);
+  panel
+    .querySelector("#pomodoroDuration")
+    .addEventListener("change", handlePomodoroDurationChange);
+  panel
+    .querySelector("#pomodoroDuration")
+    .addEventListener("keydown", handlePomodoroDurationKeydown);
   panel
     .querySelector("#pomodoroClose")
     .addEventListener("click", closePomodoroPanel);
@@ -132,12 +153,49 @@ function handlePomodoroReset() {
 
   // Optimistic UI update: reset the popup immediately.
   try {
-    pomodoroState = resetPomodoro();
+    pomodoroState = resetPomodoro(pomodoroState);
     renderPomodoro(pomodoroState);
     stopPomodoroInterval();
     persistPomodoroState(pomodoroState);
   } catch (e) {
     // ignore
+  }
+}
+
+// Let users choose the next paused Pomodoro duration directly in the tool.
+function handlePomodoroDurationChange(event) {
+  if (pomodoroState.isRunning) {
+    renderPomodoro(pomodoroState);
+    return;
+  }
+
+  const durationMinutes = normalizePomodoroDurationMinutes(event.target.value);
+
+  if (!durationMinutes) {
+    renderPomodoro(pomodoroState);
+    return;
+  }
+
+  sendBackgroundMessage(
+    { action: "pomodoro:setDuration", minutes: durationMinutes },
+    (response) => {
+      if (response && response.success) {
+        handlePomodoroResponse(response);
+      } else {
+        renderPomodoro(pomodoroState);
+      }
+    }
+  );
+
+  pomodoroState = setPomodoroDuration(pomodoroState, durationMinutes);
+  renderPomodoro(pomodoroState);
+}
+
+// Pressing Enter applies the typed duration without requiring a blur first.
+function handlePomodoroDurationKeydown(event) {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    handlePomodoroDurationChange(event);
   }
 }
 
@@ -211,6 +269,9 @@ function renderPomodoro(state) {
   document.getElementById("pomodoroStatus").textContent = state.isRunning
     ? "Running"
     : "Paused";
+  const durationInput = document.getElementById("pomodoroDuration");
+  durationInput.value = String(state.durationMinutes || 25);
+  durationInput.disabled = state.isRunning;
 }
 
 // Keep storage aligned with the visible popup countdown so reopening restores it.

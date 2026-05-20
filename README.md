@@ -120,11 +120,12 @@ To manually test Pomodoro completion:
 1. Open Chrome and go to `chrome://extensions`.
 2. Turn on Developer mode and load this repository with Load unpacked.
 3. Open FocusKit, go to Settings, and enable Notifications and Sound effects.
-4. Open Tools, launch Pomodoro, and start a short/test Pomodoro if one is
-   available.
-5. Let the timer reach `0:00`.
-6. Confirm that a Chrome notification appears.
-7. Confirm that the local Pomodoro alarm sound plays.
+4. Open Tools, launch Pomodoro, type `1` into Duration minutes, and confirm the
+   timer shows `01:00`.
+5. Start Pomodoro and confirm the duration input is disabled while running.
+6. Let the timer reach `0:00`.
+7. Confirm that a Chrome notification appears.
+8. Confirm that the local Pomodoro alarm sound plays.
 
 ## PR Links Accepted In The Past Week
 

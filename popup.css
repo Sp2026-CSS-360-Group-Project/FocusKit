@@ -257,6 +257,32 @@ body {
   margin: 18px 0;
 }
 
+.pomodoro-duration {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  margin: 0 0 14px;
+}
+
+.pomodoro-duration input {
+  width: 72px;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-family: "Sora", sans-serif;
+  font-size: 13px;
+}
+
+.pomodoro-duration input:disabled {
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
 .pomodoro-actions {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
