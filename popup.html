@@ -1,10 +1,14 @@
 <!doctype html>
 <html lang="en">
-<<<<<<< Updated upstream
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>FocusKit</title>
+    <!-- Changed font from Caveat to Sora -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="popup.css" />
     <link rel="stylesheet" href="focus-modes.css" />
   </head>
@@ -14,47 +18,6 @@
         <div class="logo">
           <span class="logo-icon">FK</span>
           <span class="logo-text">FocusKit</span>
-=======
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>FocusKit</title>
-  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="popup.css" />
-  <link rel="stylesheet" href="focus-modes.css" />
-</head>
-<body class="theme-dark">
-  <div class="app theme-dark">
-    <header class="header">
-      <div class="logo">
-        <span class="logo-icon">FK</span>
-        <span class="logo-text">FocusKit</span>
-      </div>
-      <div class="status-dot" id="statusDot" aria-label="Focus mode inactive"></div>
-    </header>
-    <nav class="tab-nav" aria-label="FocusKit sections">
-      <button class="tab-btn active" type="button" data-tab="tools">Tools</button>
-      <button class="tab-btn" type="button" data-tab="focus">Focus</button>
-      <button class="tab-btn" type="button" data-tab="settings">Settings</button>
-    </nav>
-    <section class="tab-panel active" id="tab-tools">
-      <p class="section-label">TOOLS HUB</p>
-      <div class="tools-list" id="toolsList"></div>
-    </section>
-    <section class="tab-panel" id="tab-focus" style="position:relative;">
-      <p class="section-label">FOCUS MODE</p>
-      <div class="focus-modes" id="focusModes"></div>
-    </section>
-    <section class="tab-panel" id="tab-settings">
-      <p class="section-label">SETTINGS</p>
-      <div class="settings-list">
-        <div class="setting-row">
-          <span class="setting-label">Notifications</span>
-          <label class="toggle">
-            <input type="checkbox" id="settingNotifications" checked />
-            <span class="slider"></span>
-          </label>
->>>>>>> Stashed changes
         </div>
         <div
           class="status-dot"
@@ -81,6 +44,7 @@
       </section>
       <section class="tab-panel" id="tab-settings">
         <p class="section-label">SETTINGS</p>
+        <!-- Removed duplicate HTML sections caused by merge conflict -->
         <div class="settings-list">
           <div class="setting-row">
             <span class="setting-label">Notifications</span>
@@ -107,13 +71,13 @@
       </section>
     </div>
     <!--
-    Load order matters:
-    1. pomodoroState  - shared timer state helpers (no Chrome dep)
-    2. pomodoro       - Pomodoro UI tool
-    3. focusModes     - CRUD helpers for user focus modes
-    4. tools          - TOOLS and FOCUS_MODES registries
-    5. popup          - wires everything together
-  -->
+      Load order matters:
+      1. pomodoroState  - shared timer state helpers (no Chrome dep)
+      2. pomodoro       - Pomodoro UI tool
+      3. focusModes     - CRUD helpers for user focus modes
+      4. tools          - TOOLS and FOCUS_MODES registries
+      5. popup          - wires everything together
+    -->
     <script src="tools/pomodor-timer/pomodoroState.js"></script>
     <script src="tools/pomodor-timer/pomodoro.js"></script>
     <script src="tools/focus-modes/focusModes.js"></script>
