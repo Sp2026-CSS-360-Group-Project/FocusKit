@@ -7,6 +7,7 @@ if (
 ) {
   importScripts("../tools/pomodor-timer/pomodoroState.js");
   importScripts("../tools/focus-modes/focusModes.js");
+  importScripts("../storage.js");
 }
 
 // Reuse shared state helpers in Jest without duplicating timer rules in the worker.
@@ -19,6 +20,13 @@ const focusModeHelpers =
   typeof FocusKitModes !== "undefined"
     ? FocusKitModes
     : require("../tools/focus-modes/focusModes.js");
+
+const storageHelpers =
+  typeof FocusKitStorage !== "undefined"
+    ? FocusKitStorage
+    : require("../storage.js");
+
+const { saveSession } = storageHelpers;
 
 // Keep background command names centralized so popup and tests use one message surface.
 const POMODORO_ALARM_NAME = "focuskit:pomodoro";
@@ -226,6 +234,12 @@ function clearPomodoroAlarm() {
 
 // Notify the user when a focus sprint ends. Skipped if notifications are disabled.
 async function notifyPomodoroComplete() {
+  // Record the session before anything else
+  await saveSession({
+    completedAt: Date.now(),
+    duration: 25,
+  });
+
   const settings = await getStorage(["notifications"]);
 
   if (settings.notifications === false) {
