@@ -199,10 +199,16 @@ function loadPomodoroStats() {
 
   storageHelpers.loadSessions().then((sessions) => {
     const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const todayStart = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate()
+    ).getTime();
 
     // Sessions completed today
-    const todayCount = sessions.filter((s) => s.completedAt >= todayStart).length;
+    const todayCount = sessions.filter(
+      (s) => s.completedAt >= todayStart
+    ).length;
 
     // Current streak: count consecutive days (including today) that have at least one session
     let streak = 0;
@@ -211,7 +217,9 @@ function loadPomodoroStats() {
     while (true) {
       const dayStart = checkDate.getTime();
       const dayEnd = dayStart + 24 * 60 * 60 * 1000;
-      const hasSession = sessions.some((s) => s.completedAt >= dayStart && s.completedAt < dayEnd);
+      const hasSession = sessions.some(
+        (s) => s.completedAt >= dayStart && s.completedAt < dayEnd
+      );
 
       if (!hasSession) break;
 
