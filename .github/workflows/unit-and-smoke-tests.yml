@@ -8,7 +8,7 @@ jobs:
   unit-tests:
     runs-on: ubuntu-latest
     container:
-      image: mcr.microsoft.com/playwright:v1.57.0-jammy
+      image: mcr.microsoft.com/playwright:v1.59.1-jammy
 
     steps:
       - name: Checkout code
@@ -23,7 +23,7 @@ jobs:
   smoke-tests:
     runs-on: ubuntu-latest
     container:
-      image: mcr.microsoft.com/playwright:v1.57.0-jammy
+      image: mcr.microsoft.com/playwright:v1.59.1-jammy
 
     steps:
       - name: Checkout code
