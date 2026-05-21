@@ -247,7 +247,7 @@ function startPomodoroInterval() {
         sendBackgroundMessage(
           { action: "pomodoro:complete", source: "popup" },
           (response) => {
-            handlePomodoroResponse(response);
+            handlePomodoroResponse(response, { preserveCompleted: true });
           }
         );
       }
@@ -325,12 +325,12 @@ function loadPomodoroStats() {
 }
 
 // Apply successful background timer responses to the popup state and display.
-function handlePomodoroResponse(response) {
+function handlePomodoroResponse(response, options = {}) {
   if (!response || !response.success || !response.state) {
     return;
   }
 
-  pomodoroState = restorePomodoroState(response.state);
+  pomodoroState = restorePomodoroState(response.state, Date.now(), options);
   renderPomodoro(pomodoroState);
 
   if (pomodoroState.isRunning) {
@@ -371,7 +371,10 @@ if (typeof window !== "undefined") {
 
   chrome.runtime.onMessage.addListener((message) => {
     if (message && message.action === "pomodoro:stateChanged") {
-      handlePomodoroResponse({ success: true, state: message.state });
+      handlePomodoroResponse(
+        { success: true, state: message.state },
+        { preserveCompleted: true }
+      );
     }
   });
 
@@ -385,10 +388,13 @@ if (typeof window !== "undefined") {
         changes.pomodoroState &&
         changes.pomodoroState.newValue
       ) {
-        handlePomodoroResponse({
-          success: true,
-          state: changes.pomodoroState.newValue,
-        });
+        handlePomodoroResponse(
+          {
+            success: true,
+            state: changes.pomodoroState.newValue,
+          },
+          { preserveCompleted: true }
+        );
       }
     });
   }

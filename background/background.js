@@ -61,6 +61,10 @@ const {
 
 const { loadFocusModes: loadFocusModesFromStorage } = focusModeHelpers;
 
+function createNotificationId(prefix) {
+  return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
 // Register service worker listeners only when Chrome APIs are available.
 if (typeof chrome !== "undefined" && chrome.runtime) {
   chrome.runtime.onInstalled.addListener(handleInstalled);
@@ -220,7 +224,8 @@ async function applyPomodoroDuration(seconds) {
 
 // Complete a Pomodoro through one background-owned path for alarms and popups.
 async function completePomodoroSession(source = "background", stateOverride) {
-  const currentState = stateOverride || (await readPomodoroState());
+  const currentState =
+    stateOverride || (await readPomodoroState({ preserveCompleted: true }));
 
   if (currentState.completionFired) {
     return { success: true, completed: false, state: currentState };
@@ -275,10 +280,10 @@ async function updatePomodoroState(transition, shouldRunAlarm, overrideState) {
 }
 
 // Normalize saved timer state before any service worker operation uses it.
-async function readPomodoroState() {
+async function readPomodoroState(options = {}) {
   const data = await getStorage([POMODORO_STORAGE_KEY]);
 
-  return restorePomodoroState(data[POMODORO_STORAGE_KEY]);
+  return restorePomodoroState(data[POMODORO_STORAGE_KEY], Date.now(), options);
 }
 
 // Keep the alarm schedule aligned with persisted timer state after lifecycle events.
@@ -367,11 +372,14 @@ async function testDebugAlerts() {
 async function notifyPomodoroComplete() {
   // Clear any stale break notification before showing the complete one.
   await clearNotification(POMODORO_BREAK_NOTIFICATION_ID);
+  const notificationId = createNotificationId(
+    POMODORO_COMPLETE_NOTIFICATION_ID
+  );
 
   return withTimeout(
     new Promise((resolve) => {
       chrome.notifications.create(
-        POMODORO_COMPLETE_NOTIFICATION_ID,
+        notificationId,
         {
           type: "basic",
           iconUrl:
@@ -391,14 +399,18 @@ async function notifyPomodoroComplete() {
             setStorage({ lastPomodoroNotificationError: errorMessage }).then(
               () => {
                 console.error(`Pomodoro notification failed: ${errorMessage}`);
-                resolve({ success: false, error: errorMessage });
+                resolve({
+                  success: false,
+                  error: errorMessage,
+                  notificationId,
+                });
               }
             );
             return;
           }
 
           setStorage({ lastPomodoroNotificationError: "" }).then(() =>
-            resolve({ success: true })
+            resolve({ success: true, notificationId })
           );
         }
       );
@@ -509,10 +521,11 @@ async function notifyBreakStart() {
 
   // Clear the complete notification so the break one is the only one visible.
   await clearNotification(POMODORO_COMPLETE_NOTIFICATION_ID);
+  const notificationId = createNotificationId(POMODORO_BREAK_NOTIFICATION_ID);
 
   await new Promise((resolve) => {
     chrome.notifications.create(
-      POMODORO_BREAK_NOTIFICATION_ID,
+      notificationId,
       {
         type: "basic",
         iconUrl:
@@ -523,6 +536,8 @@ async function notifyBreakStart() {
       () => resolve()
     );
   });
+
+  return notificationId;
 }
 
 // Safely clear a notification without throwing if it does not exist.
@@ -647,6 +662,7 @@ if (typeof module !== "undefined") {
     POMODORO_ALARM_SOUND_PATH,
     POMODORO_BREAK_NOTIFICATION_ID,
     POMODORO_COMPLETE_NOTIFICATION_ID,
+    createNotificationId,
     applyPomodoroDuration,
     applyFocusMode,
     completePomodoroSession,

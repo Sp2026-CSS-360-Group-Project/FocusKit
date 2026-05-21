@@ -372,7 +372,7 @@ describe("FocusKit background service worker", () => {
       completionFired: true,
     });
     expect(chrome.notifications.create).toHaveBeenCalledWith(
-      "focuskit-pomodoro-complete",
+      expect.stringMatching(/^focuskit-pomodoro-complete-\d+-/),
       expect.objectContaining({
         type: "basic",
         title: "Focus sprint complete",
@@ -530,12 +530,33 @@ describe("FocusKit background service worker", () => {
 
     const result = await background.notifyPomodoroComplete();
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       success: false,
       error: "Notifications are blocked",
+      notificationId: expect.stringMatching(/^focuskit-pomodoro-complete-\d+-/),
     });
     expect(chrome.__storage.lastPomodoroNotificationError).toBe(
       "Notifications are blocked"
+    );
+  });
+
+  test("two notification calls use different notification ids", async () => {
+    const { background, chrome } = loadBackground({
+      notifications: true,
+      sound: false,
+    });
+
+    const first = await background.notifyPomodoroComplete();
+    const second = await background.notifyPomodoroComplete();
+
+    expect(first.notificationId).toMatch(/^focuskit-pomodoro-complete-\d+-/);
+    expect(second.notificationId).toMatch(/^focuskit-pomodoro-complete-\d+-/);
+    expect(first.notificationId).not.toBe(second.notificationId);
+    expect(chrome.notifications.create.mock.calls[0][0]).toBe(
+      first.notificationId
+    );
+    expect(chrome.notifications.create.mock.calls[1][0]).toBe(
+      second.notificationId
     );
   });
 
@@ -550,7 +571,7 @@ describe("FocusKit background service worker", () => {
       errors: [],
     });
     expect(chrome.notifications.create).toHaveBeenCalledWith(
-      "focuskit-pomodoro-complete",
+      expect.stringMatching(/^focuskit-pomodoro-complete-\d+-/),
       expect.objectContaining({ title: "Focus sprint complete" }),
       expect.any(Function)
     );
@@ -581,9 +602,10 @@ describe("FocusKit background service worker", () => {
     expect(response.notificationRequested).toBe(true);
     expect(response.soundRequested).toBe(true);
     expect(response.errors).toContain("Notifications are blocked");
-    expect(response.notificationResult).toEqual({
+    expect(response.notificationResult).toMatchObject({
       success: false,
       error: "Notifications are blocked",
+      notificationId: expect.stringMatching(/^focuskit-pomodoro-complete-\d+-/),
     });
   });
 
