@@ -15,8 +15,8 @@
   --border: rgba(255, 255, 255, 0.12);
   --accent: #756fb6;
   --accent2: #59bad8;
-  --text: #f9fafb;
-  --muted: #9ca3af;
+  --text: #ffffff; /* changed text to white */
+  --muted: #9ca3af; /* muted text - gray in dark mode */
   --danger: #ff6b6b;
   --selected-bg: rgba(71, 212, 255, 0.12);
   --toggle-on-bg: rgba(232, 255, 71, 0.2);
@@ -470,4 +470,17 @@ body {
 .toggle input:checked + .slider::before {
   transform: translateX(16px);
   background: var(--accent);
+}
+
+/* Focus card text - white in dark mode, black in light mode */
+.focus-name {
+  color: var(--text);
+}
+.focus-desc {
+  color: var(--muted);
+}
+.theme-light .focus-name,
+.theme-light .focus-desc,
+.theme-light .focus-card * {
+  color: #111827;
 }
