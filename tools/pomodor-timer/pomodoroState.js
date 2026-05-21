@@ -2,23 +2,23 @@
 
 (() => {
   // Keep the timer duration and storage key centralized across extension contexts.
-  const POMODORO_DEFAULT_DURATION_MINUTES = 25;
-  const POMODORO_MAX_DURATION_MINUTES = 180;
-  const POMODORO_DURATION_SECONDS = POMODORO_DEFAULT_DURATION_MINUTES * 60;
+  const POMODORO_DEFAULT_DURATION_SECONDS = 25 * 60;
+  const POMODORO_MAX_DURATION_SECONDS = 180 * 60;
+  const POMODORO_DURATION_SECONDS = POMODORO_DEFAULT_DURATION_SECONDS;
   const POMODORO_STORAGE_KEY = "pomodoroState";
 
   // Build a fresh paused Pomodoro state using an injectable timestamp for tests.
   function createInitialPomodoroState(
     now = Date.now(),
-    durationMinutes = POMODORO_DEFAULT_DURATION_MINUTES
+    durationSeconds = POMODORO_DEFAULT_DURATION_SECONDS
   ) {
     const safeDuration =
-      normalizePomodoroDurationMinutes(durationMinutes) ||
-      POMODORO_DEFAULT_DURATION_MINUTES;
+      normalizePomodoroDurationSeconds(durationSeconds) ||
+      POMODORO_DEFAULT_DURATION_SECONDS;
 
     return {
-      remainingSeconds: safeDuration * 60,
-      durationMinutes: safeDuration,
+      remainingSeconds: safeDuration,
+      durationSeconds: safeDuration,
       isRunning: false,
       lastUpdatedAt: now,
       completionFired: false,
@@ -53,9 +53,9 @@
 
     return {
       remainingSeconds,
-      durationMinutes:
-        normalizePomodoroDurationMinutes(state.durationMinutes) ||
-        POMODORO_DEFAULT_DURATION_MINUTES,
+      durationSeconds:
+        normalizePomodoroDurationSeconds(resolveSavedDurationSeconds(state)) ||
+        POMODORO_DEFAULT_DURATION_SECONDS,
       isRunning: remainingSeconds > 0,
       lastUpdatedAt: now,
       completionFired: Boolean(state.completionFired),
@@ -90,7 +90,9 @@
     if (typeof sourceOrNow === "object" && sourceOrNow) {
       return createInitialPomodoroState(
         now,
-        normalizePomodoroDurationMinutes(sourceOrNow.durationMinutes)
+        normalizePomodoroDurationSeconds(
+          resolveSavedDurationSeconds(sourceOrNow)
+        )
       );
     }
 
@@ -98,16 +100,16 @@
   }
 
   // Change the selected duration only while the timer is paused.
-  function setPomodoroDuration(state, minutes, now = Date.now()) {
-    const durationMinutes = normalizePomodoroDurationMinutes(minutes);
+  function setPomodoroDurationSeconds(state, seconds, now = Date.now()) {
+    const durationSeconds = normalizePomodoroDurationSeconds(seconds);
 
-    if (!durationMinutes || state.isRunning) {
+    if (!durationSeconds || state.isRunning) {
       return state;
     }
 
     return {
-      remainingSeconds: durationMinutes * 60,
-      durationMinutes,
+      remainingSeconds: durationSeconds,
+      durationSeconds,
       isRunning: false,
       lastUpdatedAt: now,
       completionFired: false,
@@ -120,17 +122,18 @@
       return createInitialPomodoroState(now);
     }
 
-    const durationMinutes =
-      normalizePomodoroDurationMinutes(savedState.durationMinutes) ||
-      POMODORO_DEFAULT_DURATION_MINUTES;
+    const durationSeconds =
+      normalizePomodoroDurationSeconds(
+        resolveSavedDurationSeconds(savedState)
+      ) || POMODORO_DEFAULT_DURATION_SECONDS;
 
     return tickPomodoro(
       {
         remainingSeconds: Math.min(
-          durationMinutes * 60,
+          durationSeconds,
           Math.max(0, savedState.remainingSeconds)
         ),
-        durationMinutes,
+        durationSeconds,
         isRunning: Boolean(savedState.isRunning),
         lastUpdatedAt:
           typeof savedState.lastUpdatedAt === "number"
@@ -142,38 +145,84 @@
     );
   }
 
-  // Accept whole-minute values from popup inputs and reject unsafe durations.
-  function normalizePomodoroDurationMinutes(value) {
+  // Parse editable mm:ss input and reject unsafe timer values.
+  function parsePomodoroTimeInput(value) {
+    if (typeof value !== "string" || !value.trim()) {
+      return null;
+    }
+
+    const match = value.trim().match(/^(\d+):(\d{1,2})$/);
+
+    if (!match) {
+      return null;
+    }
+
+    const minutes = Number(match[1]);
+    const seconds = Number(match[2]);
+
+    if (seconds >= 60) {
+      return null;
+    }
+
+    return normalizePomodoroDurationSeconds(minutes * 60 + seconds);
+  }
+
+  // Keep editable input display normalized to the same shape as the timer.
+  function formatPomodoroInput(totalSeconds) {
+    return formatTime(totalSeconds);
+  }
+
+  // Accept selected durations in seconds and reject unsafe values.
+  function normalizePomodoroDurationSeconds(value) {
     if (value === "" || value === null || value === undefined) {
       return null;
     }
 
-    const durationMinutes = Number(value);
+    const durationSeconds = Number(value);
 
     if (
-      !Number.isInteger(durationMinutes) ||
-      durationMinutes < 1 ||
-      durationMinutes > POMODORO_MAX_DURATION_MINUTES
+      !Number.isInteger(durationSeconds) ||
+      durationSeconds < 1 ||
+      durationSeconds > POMODORO_MAX_DURATION_SECONDS
     ) {
       return null;
     }
 
-    return durationMinutes;
+    return durationSeconds;
+  }
+
+  // Read new seconds-based duration, with migration support for old minute state.
+  function resolveSavedDurationSeconds(state) {
+    if (!state) {
+      return null;
+    }
+
+    if (typeof state.durationSeconds === "number") {
+      return state.durationSeconds;
+    }
+
+    if (typeof state.durationMinutes === "number") {
+      return state.durationMinutes * 60;
+    }
+
+    return null;
   }
 
   // Share helpers with browser scripts loaded directly by popup.html and importScripts().
   const FocusKitPomodoroState = {
-    POMODORO_DEFAULT_DURATION_MINUTES,
+    POMODORO_DEFAULT_DURATION_SECONDS,
     POMODORO_DURATION_SECONDS,
-    POMODORO_MAX_DURATION_MINUTES,
+    POMODORO_MAX_DURATION_SECONDS,
     POMODORO_STORAGE_KEY,
     createInitialPomodoroState,
+    formatPomodoroInput,
     formatTime,
-    normalizePomodoroDurationMinutes,
+    normalizePomodoroDurationSeconds,
+    parsePomodoroTimeInput,
     pausePomodoro,
     resetPomodoro,
     restorePomodoroState,
-    setPomodoroDuration,
+    setPomodoroDurationSeconds,
     startPomodoro,
     tickPomodoro,
   };

@@ -39,11 +39,11 @@ const MESSAGE_ACTIONS = {
 
 const {
   POMODORO_STORAGE_KEY,
-  normalizePomodoroDurationMinutes,
+  normalizePomodoroDurationSeconds,
   pausePomodoro,
   resetPomodoro,
   restorePomodoroState,
-  setPomodoroDuration,
+  setPomodoroDurationSeconds,
   startPomodoro,
   tickPomodoro,
 } = pomodoroHelpers;
@@ -131,7 +131,7 @@ async function handleMessageAsync(message) {
   }
 
   if (message.action === MESSAGE_ACTIONS.pomodoroSetDuration) {
-    return applyPomodoroDuration(message.minutes);
+    return applyPomodoroDuration(message.seconds);
   }
 
   if (message.action === MESSAGE_ACTIONS.focusSetMode) {
@@ -186,8 +186,8 @@ async function getCurrentPomodoroState() {
 }
 
 // Apply a user-selected paused Pomodoro duration.
-async function applyPomodoroDuration(minutes) {
-  if (!normalizePomodoroDurationMinutes(minutes)) {
+async function applyPomodoroDuration(seconds) {
+  if (!normalizePomodoroDurationSeconds(seconds)) {
     return { success: false, error: "Invalid Pomodoro duration" };
   }
 
@@ -201,7 +201,7 @@ async function applyPomodoroDuration(minutes) {
     };
   }
 
-  const state = setPomodoroDuration(currentState, minutes);
+  const state = setPomodoroDurationSeconds(currentState, seconds);
   await setStorage({ [POMODORO_STORAGE_KEY]: state });
   await clearPomodoroAlarm();
   broadcastPomodoroState(state);

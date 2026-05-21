@@ -52,20 +52,21 @@ async function expectPomodoroWorks(page) {
 
   const panel = page.locator("#pomodoroPanel");
   const display = page.locator("#pomodoroTime");
-  const durationInput = page.getByLabel("Duration minutes");
 
   await expect(panel).toBeVisible();
   await expect(display).toHaveText("25:00");
-  await expect(durationInput).toBeVisible();
-  await expect(durationInput).toHaveValue("25");
+  await expect(page.getByText("Duration minutes")).toHaveCount(0);
+  await expect(display).toHaveAttribute("contenteditable", "true");
   await expect(page.getByRole("button", { name: "Start" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Reset" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Close" })).toBeVisible();
 
-  await durationInput.fill("1");
-  await durationInput.press("Enter");
-  await expect(display).toHaveText("01:00");
+  await display.click();
+  await page.keyboard.press("Control+A");
+  await page.keyboard.type("0:01");
+  await page.keyboard.press("Enter");
+  await expect(display).toHaveText("00:01");
   await page.waitForFunction(
     () =>
       new Promise((resolve) => {
@@ -73,8 +74,8 @@ async function expectPomodoroWorks(page) {
           resolve(
             Boolean(
               data.pomodoroState &&
-              data.pomodoroState.remainingSeconds === 60 &&
-              data.pomodoroState.durationMinutes === 1
+              data.pomodoroState.remainingSeconds === 1 &&
+              data.pomodoroState.durationSeconds === 1
             )
           );
         });
@@ -82,7 +83,7 @@ async function expectPomodoroWorks(page) {
   );
 
   await page.getByRole("button", { name: "Start" }).click();
-  await expect(durationInput).toBeDisabled();
+  await expect(display).toHaveAttribute("contenteditable", "false");
   await page.waitForFunction(
     () =>
       new Promise((resolve) => {
@@ -91,12 +92,24 @@ async function expectPomodoroWorks(page) {
         });
       })
   );
-  await expect(page.locator("#pomodoroStatus")).toHaveText("Running");
-
   await page.waitForFunction(
-    () => document.querySelector("#pomodoroTime").textContent !== "01:00"
+    () =>
+      new Promise((resolve) => {
+        chrome.storage.local.get(["pomodoroState"], (data) => {
+          resolve(
+            Boolean(
+              data.pomodoroState &&
+              data.pomodoroState.remainingSeconds === 0 &&
+              data.pomodoroState.isRunning === false &&
+              data.pomodoroState.completionFired === true
+            )
+          );
+        });
+      }),
+    null,
+    { timeout: 5000 }
   );
-  const runningDisplay = await display.textContent();
+  await expect(display).toHaveText("00:00");
 
   await page.getByRole("button", { name: "Pause" }).click();
   await page.waitForFunction(
@@ -112,18 +125,17 @@ async function expectPomodoroWorks(page) {
       })
   );
   await expect(page.locator("#pomodoroStatus")).toHaveText("Paused");
-  await expect(durationInput).toBeEnabled();
-  await expect(display).toHaveText(runningDisplay);
+  await expect(display).toHaveAttribute("contenteditable", "true");
+  await expect(display).toHaveText("00:00");
 
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.getByRole("button", { name: "Launch Pomodoro" }).click();
   await expect(panel).toBeVisible();
-  await expect(display).toHaveText(runningDisplay);
-  await expect(durationInput).toHaveValue("1");
+  await expect(display).toHaveText("00:00");
   await expect(page.locator("#pomodoroStatus")).toHaveText("Paused");
 
   await page.getByRole("button", { name: "Reset" }).click();
-  await expect(display).toHaveText("01:00");
+  await expect(display).toHaveText("00:01");
   await page.waitForFunction(
     () =>
       new Promise((resolve) => {
@@ -131,8 +143,8 @@ async function expectPomodoroWorks(page) {
           resolve(
             Boolean(
               data.pomodoroState &&
-              data.pomodoroState.remainingSeconds === 60 &&
-              data.pomodoroState.durationMinutes === 1 &&
+              data.pomodoroState.remainingSeconds === 1 &&
+              data.pomodoroState.durationSeconds === 1 &&
               data.pomodoroState.isRunning === false
             )
           );
@@ -148,7 +160,7 @@ async function expectPomodoroWorks(page) {
           {
             pomodoroState: {
               remainingSeconds: 1500,
-              durationMinutes: 25,
+              durationSeconds: 1500,
               isRunning: false,
               lastUpdatedAt: Date.now(),
               completionFired: false,
@@ -174,7 +186,7 @@ async function expectPomodoroCompletionObservable(page) {
             sound: true,
             pomodoroState: {
               remainingSeconds: 1,
-              durationMinutes: 1,
+              durationSeconds: 1,
               isRunning: false,
               lastUpdatedAt: Date.now(),
               completionFired: false,
@@ -219,7 +231,7 @@ async function expectPomodoroCompletionObservable(page) {
             sound: false,
             pomodoroState: {
               remainingSeconds: 1500,
-              durationMinutes: 25,
+              durationSeconds: 1500,
               isRunning: false,
               lastUpdatedAt: Date.now(),
               completionFired: false,

@@ -7,15 +7,14 @@ const pomodoroStateHelpers =
     : require("./pomodoroState.js");
 
 const {
-  POMODORO_MAX_DURATION_MINUTES,
   POMODORO_STORAGE_KEY,
   createInitialPomodoroState,
-  formatTime,
-  normalizePomodoroDurationMinutes,
+  formatPomodoroInput,
+  parsePomodoroTimeInput,
   pausePomodoro,
   resetPomodoro,
   restorePomodoroState,
-  setPomodoroDuration,
+  setPomodoroDurationSeconds,
   startPomodoro,
   tickPomodoro,
 } = pomodoroStateHelpers;
@@ -61,19 +60,15 @@ function getPomodoroPanel() {
       </div>
       <span class="pomodoro-status" id="pomodoroStatus">Paused</span>
     </div>
-    <div class="pomodoro-time" id="pomodoroTime">25:00</div>
-    <label class="pomodoro-duration" for="pomodoroDuration">
-      <span>Duration minutes:</span>
-      <input
-        id="pomodoroDuration"
-        type="number"
-        min="1"
-        max="${POMODORO_MAX_DURATION_MINUTES}"
-        step="1"
-        value="25"
-        aria-label="Duration minutes"
-      />
-    </label>
+    <div
+      class="pomodoro-time"
+      id="pomodoroTime"
+      role="textbox"
+      aria-label="Pomodoro timer"
+      contenteditable="true"
+      spellcheck="false"
+      inputmode="numeric"
+    >25:00</div>
     <div class="pomodoro-actions">
       <button class="pomodoro-button" type="button" id="pomodoroStart">Start</button>
       <button class="pomodoro-button" type="button" id="pomodoroPause">Pause</button>
@@ -94,11 +89,14 @@ function getPomodoroPanel() {
     .querySelector("#pomodoroReset")
     .addEventListener("click", handlePomodoroReset);
   panel
-    .querySelector("#pomodoroDuration")
-    .addEventListener("change", handlePomodoroDurationChange);
+    .querySelector("#pomodoroTime")
+    .addEventListener("blur", handlePomodoroTimeBlur);
   panel
-    .querySelector("#pomodoroDuration")
-    .addEventListener("keydown", handlePomodoroDurationKeydown);
+    .querySelector("#pomodoroTime")
+    .addEventListener("focus", handlePomodoroTimeFocus);
+  panel
+    .querySelector("#pomodoroTime")
+    .addEventListener("keydown", handlePomodoroTimeKeydown);
   panel
     .querySelector("#pomodoroClose")
     .addEventListener("click", closePomodoroPanel);
@@ -108,6 +106,8 @@ function getPomodoroPanel() {
 
 // Start delegates timer ownership to the background service worker.
 function handlePomodoroStart() {
+  applyPomodoroTimeInput();
+
   sendBackgroundMessage({ action: "pomodoro:start" }, (response) => {
     handlePomodoroResponse(response);
   });
@@ -162,22 +162,50 @@ function handlePomodoroReset() {
   }
 }
 
-// Let users choose the next paused Pomodoro duration directly in the tool.
-function handlePomodoroDurationChange(event) {
+// Apply editable timer text after blur.
+function handlePomodoroTimeBlur() {
+  applyPomodoroTimeInput();
+}
+
+// Make click-to-edit replace the whole timer value while paused.
+function handlePomodoroTimeFocus(event) {
+  if (pomodoroState.isRunning) {
+    event.currentTarget.blur();
+    return;
+  }
+
+  const selection = window.getSelection();
+  const range = document.createRange();
+  range.selectNodeContents(event.currentTarget);
+  selection.removeAllRanges();
+  selection.addRange(range);
+}
+
+// Enter applies the typed timer value without inserting a newline.
+function handlePomodoroTimeKeydown(event) {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    event.currentTarget.blur();
+  }
+}
+
+// Let users choose the next paused Pomodoro duration by editing the timer text.
+function applyPomodoroTimeInput() {
   if (pomodoroState.isRunning) {
     renderPomodoro(pomodoroState);
     return;
   }
 
-  const durationMinutes = normalizePomodoroDurationMinutes(event.target.value);
+  const timerDisplay = document.getElementById("pomodoroTime");
+  const durationSeconds = parsePomodoroTimeInput(timerDisplay.textContent);
 
-  if (!durationMinutes) {
+  if (!durationSeconds) {
     renderPomodoro(pomodoroState);
     return;
   }
 
   sendBackgroundMessage(
-    { action: "pomodoro:setDuration", minutes: durationMinutes },
+    { action: "pomodoro:setDuration", seconds: durationSeconds },
     (response) => {
       if (response && response.success) {
         handlePomodoroResponse(response);
@@ -187,16 +215,9 @@ function handlePomodoroDurationChange(event) {
     }
   );
 
-  pomodoroState = setPomodoroDuration(pomodoroState, durationMinutes);
+  pomodoroState = setPomodoroDurationSeconds(pomodoroState, durationSeconds);
   renderPomodoro(pomodoroState);
-}
-
-// Pressing Enter applies the typed duration without requiring a blur first.
-function handlePomodoroDurationKeydown(event) {
-  if (event.key === "Enter") {
-    event.preventDefault();
-    handlePomodoroDurationChange(event);
-  }
+  persistPomodoroState(pomodoroState);
 }
 
 // Refresh the visible popup display while the background alarm owns persistence.
@@ -263,15 +284,12 @@ function sendBackgroundMessage(message, callback) {
 // Render the current timer value and running/paused label.
 function renderPomodoro(state) {
   getPomodoroPanel();
-  document.getElementById("pomodoroTime").textContent = formatTime(
-    state.remainingSeconds
-  );
+  const timerDisplay = document.getElementById("pomodoroTime");
+  timerDisplay.textContent = formatPomodoroInput(state.remainingSeconds);
+  timerDisplay.contentEditable = String(!state.isRunning);
   document.getElementById("pomodoroStatus").textContent = state.isRunning
     ? "Running"
     : "Paused";
-  const durationInput = document.getElementById("pomodoroDuration");
-  durationInput.value = String(state.durationMinutes || 25);
-  durationInput.disabled = state.isRunning;
 }
 
 // Keep storage aligned with the visible popup countdown so reopening restores it.

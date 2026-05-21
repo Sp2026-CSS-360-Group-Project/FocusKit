@@ -249,38 +249,30 @@ body {
 
 .pomodoro-time {
   color: var(--text);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
   font-family: "Sora", sans-serif;
   font-size: 44px;
   font-weight: 500;
   letter-spacing: -0.08em;
   text-align: center;
   margin: 18px 0;
+  outline: none;
 }
 
-.pomodoro-duration {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
+.pomodoro-time[contenteditable="true"] {
+  cursor: text;
+}
+
+.pomodoro-time[contenteditable="true"]:focus {
+  border-color: var(--accent2);
+  background: var(--selected-bg);
+}
+
+.pomodoro-time[contenteditable="false"] {
   color: var(--muted);
-  font-size: 12px;
-  margin: 0 0 14px;
-}
-
-.pomodoro-duration input {
-  width: 72px;
-  color: var(--text);
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 6px 8px;
-  font-family: "Sora", sans-serif;
-  font-size: 13px;
-}
-
-.pomodoro-duration input:disabled {
-  color: var(--muted);
-  cursor: not-allowed;
+  cursor: default;
 }
 
 .pomodoro-actions {
