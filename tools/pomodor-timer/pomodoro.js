@@ -1,5 +1,5 @@
+/* global FocusKitStorage */
 // pomodoro.js - FocusKit Pomodoro timer state and popup UI.
-
 // Load shared timer helpers from pomodoroState.js in Chrome and from require() in Jest.
 const pomodoroStateHelpers =
   typeof FocusKitPomodoroState !== "undefined"
