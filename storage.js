@@ -47,7 +47,12 @@ async function loadSessions() {
 }
 
 if (typeof globalThis !== "undefined") {
-  globalThis.FocusKitStorage = { saveSettings, loadSettings, saveSession, loadSessions };
+  globalThis.FocusKitStorage = {
+    saveSettings,
+    loadSettings,
+    saveSession,
+    loadSessions,
+  };
 }
 
 if (typeof module !== "undefined") {
