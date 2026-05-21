@@ -13,13 +13,15 @@ This project uses npm audit for dependency security analysis through
 `npm run security`.
 
 GitHub Actions enforces the static-analysis and test rules in
-`.github/workflows/ci.yml`. The workflow runs:
+`.github/workflows/static-analysis.yml` and `.github/workflows/unit-and-smoke-tests.yml`.
+The workflows run:
 
 ```bash
 npm ci
 npm run format:check
 npm run lint
 npm run security
+npm run test:unit
 npm test
 npm run smoke
 ```

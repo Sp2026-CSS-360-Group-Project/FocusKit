@@ -20,7 +20,7 @@ All JavaScript dependencies defined in package.json
 
 ## Enforcement
 
-Runs automatically on every Pull Request via GitHub Actions in .github/workflows/ci.yml using:
+Runs automatically on every Pull Request via GitHub Actions in .github/workflows/static-analysis.yml using:
 npm audit --audit-level=high
 
 PRs with high or critical vulnerabilities are blocked from merging.
