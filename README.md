@@ -115,6 +115,16 @@ http://localhost:5000/api/health
 The Pomodoro alarm sound is a tiny generated local WAV file stored at
 `assets/sounds/pomodoro-alarm.wav`.
 
+To manually test the temporary debug alert button:
+
+1. Open Chrome and go to `chrome://extensions`.
+2. Reload FocusKit and open the service worker console.
+3. Open the popup and go to Settings.
+4. Click Test notification and sound.
+5. Confirm that a Chrome notification appears.
+6. Confirm that the local Pomodoro alarm sound plays.
+7. If either fails, check the visible debug result and service worker console.
+
 To manually test Pomodoro completion:
 
 1. Open Chrome and go to `chrome://extensions`.

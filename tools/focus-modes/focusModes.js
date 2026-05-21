@@ -119,9 +119,9 @@ function deleteFocusMode(modeId, callback) {
   });
 }
 
-// Expose for popup and tests.
-if (typeof window !== "undefined") {
-  window.FocusKitModes = {
+// Expose for popup, service worker importScripts(), and tests.
+if (typeof globalThis !== "undefined") {
+  globalThis.FocusKitModes = {
     FOCUS_MODES_STORAGE_KEY,
     DEFAULT_FOCUS_MODES,
     loadFocusModes,

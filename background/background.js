@@ -6,6 +6,12 @@ if (
   typeof FocusKitPomodoroState === "undefined"
 ) {
   importScripts("../tools/pomodor-timer/pomodoroState.js");
+}
+
+if (
+  typeof importScripts === "function" &&
+  typeof FocusKitModes === "undefined"
+) {
   importScripts("../tools/focus-modes/focusModes.js");
 }
 
@@ -25,6 +31,8 @@ const POMODORO_ALARM_NAME = "focuskit:pomodoro";
 const POMODORO_ALARM_SOUND_PATH = "assets/sounds/pomodoro-alarm.wav";
 const POMODORO_COMPLETE_NOTIFICATION_ID = "focuskit-pomodoro-complete";
 const POMODORO_ICON_PATH = "icons/icon48.png";
+const POMODORO_NOTIFICATION_TIMEOUT_MS = 2000;
+const POMODORO_SOUND_TIMEOUT_MS = 2000;
 // Separate id prevents the break notification overwriting the complete notification.
 const POMODORO_BREAK_NOTIFICATION_ID = "focuskit-pomodoro-break";
 
@@ -36,6 +44,7 @@ const MESSAGE_ACTIONS = {
   pomodoroReset: "pomodoro:reset",
   pomodoroSetDuration: "pomodoro:setDuration",
   pomodoroComplete: "pomodoro:complete",
+  debugTestAlerts: "debug:testAlerts",
   focusSetMode: "focus:setMode",
 };
 
@@ -50,7 +59,7 @@ const {
   tickPomodoro,
 } = pomodoroHelpers;
 
-const { loadFocusModes, FOCUS_MODES_STORAGE_KEY } = focusModeHelpers;
+const { loadFocusModes: loadFocusModesFromStorage } = focusModeHelpers;
 
 // Register service worker listeners only when Chrome APIs are available.
 if (typeof chrome !== "undefined" && chrome.runtime) {
@@ -138,6 +147,10 @@ async function handleMessageAsync(message) {
 
   if (message.action === MESSAGE_ACTIONS.pomodoroComplete) {
     return completePomodoroSession(message.source || "popup");
+  }
+
+  if (message.action === MESSAGE_ACTIONS.debugTestAlerts) {
+    return testDebugAlerts();
   }
 
   if (message.action === MESSAGE_ACTIONS.focusSetMode) {
@@ -314,10 +327,40 @@ async function handlePomodoroComplete(source = "background") {
 
   if (settings.sound === true) {
     effects.soundRequested = true;
-    await playPomodoroAlarmSound();
+    effects.soundResult = await playPomodoroAlarmSound();
   }
 
   return effects;
+}
+
+// Temporary manual debug action for testing notification and audio APIs directly.
+async function testDebugAlerts() {
+  const result = {
+    notificationRequested: true,
+    soundRequested: true,
+    errors: [],
+  };
+
+  const notificationResult = await notifyPomodoroComplete();
+  result.notificationResult = notificationResult;
+
+  if (notificationResult && notificationResult.error) {
+    result.errors.push(notificationResult.error);
+  }
+
+  try {
+    result.soundResult = await playPomodoroAlarmSound();
+    if (result.soundResult && result.soundResult.error) {
+      result.errors.push(result.soundResult.error);
+    }
+  } catch (error) {
+    const message = error.message || "Pomodoro alarm sound failed";
+    console.error(`Pomodoro alarm sound failed: ${message}`);
+    result.soundResult = { success: false, error: message };
+    result.errors.push(message);
+  }
+
+  return result;
 }
 
 // Notify the user when a focus sprint ends. Skipped if notifications are disabled.
@@ -325,65 +368,94 @@ async function notifyPomodoroComplete() {
   // Clear any stale break notification before showing the complete one.
   await clearNotification(POMODORO_BREAK_NOTIFICATION_ID);
 
-  return new Promise((resolve) => {
-    chrome.notifications.create(
-      POMODORO_COMPLETE_NOTIFICATION_ID,
-      {
-        type: "basic",
-        iconUrl:
-          typeof chrome.runtime.getURL === "function"
-            ? chrome.runtime.getURL(POMODORO_ICON_PATH)
-            : POMODORO_ICON_PATH,
-        title: "Focus sprint complete",
-        message:
-          "Your Pomodoro is done. Take a short reset before the next block.",
-      },
-      () => {
-        const errorMessage = chrome.runtime.lastError
-          ? chrome.runtime.lastError.message
-          : "";
+  return withTimeout(
+    new Promise((resolve) => {
+      chrome.notifications.create(
+        POMODORO_COMPLETE_NOTIFICATION_ID,
+        {
+          type: "basic",
+          iconUrl:
+            typeof chrome.runtime.getURL === "function"
+              ? chrome.runtime.getURL(POMODORO_ICON_PATH)
+              : POMODORO_ICON_PATH,
+          title: "Focus sprint complete",
+          message:
+            "Your Pomodoro is done. Take a short reset before the next block.",
+        },
+        () => {
+          const errorMessage = chrome.runtime.lastError
+            ? chrome.runtime.lastError.message
+            : "";
 
-        if (errorMessage) {
-          setStorage({ lastPomodoroNotificationError: errorMessage }).then(
-            () => {
-              console.error(`Pomodoro notification failed: ${errorMessage}`);
-              resolve({ success: false, error: errorMessage });
-            }
+          if (errorMessage) {
+            setStorage({ lastPomodoroNotificationError: errorMessage }).then(
+              () => {
+                console.error(`Pomodoro notification failed: ${errorMessage}`);
+                resolve({ success: false, error: errorMessage });
+              }
+            );
+            return;
+          }
+
+          setStorage({ lastPomodoroNotificationError: "" }).then(() =>
+            resolve({ success: true })
           );
-          return;
         }
-
-        setStorage({ lastPomodoroNotificationError: "" }).then(() =>
-          resolve({ success: true })
-        );
-      }
-    );
-  });
+      );
+    }),
+    POMODORO_NOTIFICATION_TIMEOUT_MS,
+    "Pomodoro notification timed out"
+  );
 }
 
 // Ask an MV3 offscreen document to play the local Pomodoro alarm sound.
 async function playPomodoroAlarmSound() {
   if (!chrome.offscreen || !chrome.runtime || !chrome.runtime.sendMessage) {
-    return;
+    return { success: false, error: "Offscreen audio APIs are unavailable" };
   }
 
-  await ensureAlarmOffscreenDocument();
+  const offscreenResult = await withTimeout(
+    ensureAlarmOffscreenDocument().then(() => ({ success: true })),
+    POMODORO_SOUND_TIMEOUT_MS,
+    "Pomodoro offscreen audio setup timed out"
+  );
 
-  await new Promise((resolve) => {
-    chrome.runtime.sendMessage(
-      {
-        action: "pomodoro:playAlarmSound",
-        soundPath:
-          typeof chrome.runtime.getURL === "function"
-            ? chrome.runtime.getURL(POMODORO_ALARM_SOUND_PATH)
-            : POMODORO_ALARM_SOUND_PATH,
-      },
-      () => {
-        void chrome.runtime.lastError;
-        resolve();
-      }
-    );
-  });
+  if (!offscreenResult.success) {
+    return offscreenResult;
+  }
+
+  return withTimeout(
+    new Promise((resolve) => {
+      chrome.runtime.sendMessage(
+        {
+          action: "pomodoro:playAlarmSound",
+          soundPath:
+            typeof chrome.runtime.getURL === "function"
+              ? chrome.runtime.getURL(POMODORO_ALARM_SOUND_PATH)
+              : POMODORO_ALARM_SOUND_PATH,
+        },
+        (response) => {
+          const errorMessage = chrome.runtime.lastError
+            ? chrome.runtime.lastError.message
+            : "";
+
+          if (errorMessage) {
+            resolve({ success: false, error: errorMessage });
+            return;
+          }
+
+          if (response && response.success === false) {
+            resolve(response);
+            return;
+          }
+
+          resolve({ success: true });
+        }
+      );
+    }),
+    POMODORO_SOUND_TIMEOUT_MS,
+    "Pomodoro alarm sound timed out"
+  );
 }
 
 // Create the offscreen audio page once, then reuse it for future sessions.
@@ -401,6 +473,29 @@ async function ensureAlarmOffscreenDocument() {
     url,
     reasons: [chrome.offscreen.Reason.AUDIO_PLAYBACK],
     justification: "Play the Pomodoro completion alarm sound.",
+  });
+}
+
+// Keep debug/manual alert checks from hanging forever if an extension API stalls.
+function withTimeout(promise, timeoutMs, message) {
+  return new Promise((resolve) => {
+    const timeoutId = setTimeout(
+      () => resolve({ success: false, error: message }),
+      timeoutMs
+    );
+
+    promise
+      .then((value) => {
+        clearTimeout(timeoutId);
+        resolve(value);
+      })
+      .catch((error) => {
+        clearTimeout(timeoutId);
+        resolve({
+          success: false,
+          error: error.message || message,
+        });
+      });
   });
 }
 
@@ -498,7 +593,7 @@ async function applyFocusMode(modeId) {
 // Look up a mode definition from storage by id, returning null if not found.
 function resolveModeById(modeId) {
   return new Promise((resolve) => {
-    loadFocusModes((modes) => {
+    loadFocusModesFromStorage((modes) => {
       resolve(modes.find((m) => m.id === modeId) || null);
     });
   });
@@ -564,5 +659,6 @@ if (typeof module !== "undefined") {
     notifyBreakStart,
     notifyPomodoroComplete,
     playPomodoroAlarmSound,
+    testDebugAlerts,
   };
 }

@@ -539,6 +539,71 @@ describe("FocusKit background service worker", () => {
     );
   });
 
+  test("debug alert test requests notification and sound", async () => {
+    const { chrome } = loadBackground();
+
+    const response = await sendMessage(chrome, { action: "debug:testAlerts" });
+
+    expect(response).toMatchObject({
+      notificationRequested: true,
+      soundRequested: true,
+      errors: [],
+    });
+    expect(chrome.notifications.create).toHaveBeenCalledWith(
+      "focuskit-pomodoro-complete",
+      expect.objectContaining({ title: "Focus sprint complete" }),
+      expect.any(Function)
+    );
+    expect(chrome.offscreen.createDocument).toHaveBeenCalledWith({
+      url: "offscreen/pomodoro-alarm.html",
+      reasons: ["AUDIO_PLAYBACK"],
+      justification: "Play the Pomodoro completion alarm sound.",
+    });
+    expect(chrome.runtime.sendMessage).toHaveBeenCalledWith(
+      {
+        action: "pomodoro:playAlarmSound",
+        soundPath: "chrome-extension://test/assets/sounds/pomodoro-alarm.wav",
+      },
+      expect.any(Function)
+    );
+  });
+
+  test("debug alert test reports notification runtime errors", async () => {
+    const { chrome } = loadBackground();
+    chrome.notifications.create.mockImplementation((id, options, callback) => {
+      chrome.runtime.lastError = { message: "Notifications are blocked" };
+      callback();
+      chrome.runtime.lastError = null;
+    });
+
+    const response = await sendMessage(chrome, { action: "debug:testAlerts" });
+
+    expect(response.notificationRequested).toBe(true);
+    expect(response.soundRequested).toBe(true);
+    expect(response.errors).toContain("Notifications are blocked");
+    expect(response.notificationResult).toEqual({
+      success: false,
+      error: "Notifications are blocked",
+    });
+  });
+
+  test("debug alert test reports offscreen sound errors", async () => {
+    const { chrome } = loadBackground();
+    chrome.offscreen.createDocument.mockRejectedValue(
+      new Error("Offscreen creation failed")
+    );
+
+    const response = await sendMessage(chrome, { action: "debug:testAlerts" });
+
+    expect(response.notificationRequested).toBe(true);
+    expect(response.soundRequested).toBe(true);
+    expect(response.errors).toContain("Offscreen creation failed");
+    expect(response.soundResult).toEqual({
+      success: false,
+      error: "Offscreen creation failed",
+    });
+  });
+
   test("reset and start clear the completion guard for a future session", async () => {
     jest.spyOn(Date, "now").mockReturnValue(3000000);
     const { chrome } = loadBackground({

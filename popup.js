@@ -17,6 +17,7 @@ document.addEventListener("DOMContentLoaded", () => {
   loadSavedState();
   window.requestAnimationFrame(loadSavedState);
   setupSettingsPersistence();
+  setupDebugAlerts();
   listenForBackgroundMessages();
 });
 
@@ -432,6 +433,36 @@ function setupSettingsPersistence() {
         chrome.storage.local.set({ [key]: input.checked });
       });
     });
+}
+
+// Temporary debug control for manually verifying notification and sound APIs.
+function setupDebugAlerts() {
+  const button = document.getElementById("debugAlertsBtn");
+  const result = document.getElementById("debugAlertsResult");
+
+  if (!button || !result) {
+    return;
+  }
+
+  button.addEventListener("click", () => {
+    result.textContent = "Requesting test alert...";
+
+    chrome.runtime.sendMessage({ action: "debug:testAlerts" }, (response) => {
+      console.log("Debug alert result", response);
+
+      if (!response || !Array.isArray(response.errors)) {
+        result.textContent = "Test alert failed: No structured response";
+        return;
+      }
+
+      if (response.errors.length > 0) {
+        result.textContent = `Test alert failed: ${response.errors.join("; ")}`;
+        return;
+      }
+
+      result.textContent = "Test alert requested.";
+    });
+  });
 }
 
 // Keep the popup in sync when the background applies a mode while the popup is open.

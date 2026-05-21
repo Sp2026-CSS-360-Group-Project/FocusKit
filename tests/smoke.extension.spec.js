@@ -324,9 +324,26 @@ test("FocusKit popup renders core features without console errors", async () => 
       page.getByText("Sound effects", { exact: true })
     ).toBeVisible();
     await expect(page.getByText("Dark mode", { exact: true })).toBeVisible();
+    await expect(page.getByText("Debug alerts", { exact: true })).toBeVisible();
+    await expect(
+      page.getByText(
+        "Temporary debug control for verifying Pomodoro alert APIs."
+      )
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Test notification and sound" })
+    ).toBeVisible();
     await expect(
       page.getByText("Auto-start timer", { exact: true })
     ).toHaveCount(0);
+
+    await page
+      .getByRole("button", { name: "Test notification and sound" })
+      .click();
+    await expect(page.locator("#debugAlertsResult")).toHaveText(
+      /Test alert (requested|failed:)/,
+      { timeout: 12000 }
+    );
 
     const dark = page.locator("#settingDark");
     const darkModeSettingRow = page.locator(".setting-row", {
