@@ -249,12 +249,30 @@ body {
 
 .pomodoro-time {
   color: var(--text);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
   font-family: "Sora", sans-serif;
   font-size: 44px;
   font-weight: 500;
   letter-spacing: -0.08em;
   text-align: center;
   margin: 18px 0;
+  outline: none;
+}
+
+.pomodoro-time[contenteditable="true"] {
+  cursor: text;
+}
+
+.pomodoro-time[contenteditable="true"]:focus {
+  border-color: var(--accent2);
+  background: var(--selected-bg);
+}
+
+.pomodoro-time[contenteditable="false"] {
+  color: var(--muted);
+  cursor: default;
 }
 
 .pomodoro-actions {
@@ -379,6 +397,46 @@ body {
 .toggle input:checked + .slider::before {
   transform: translateX(16px);
   background: var(--accent);
+}
+
+.debug-alerts {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 11px 13px;
+  margin-top: 12px;
+}
+
+.debug-alerts-title {
+  color: var(--text);
+  font-family: "Sora", sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.debug-alerts-note,
+.debug-alerts-result {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.debug-alerts-button {
+  background: var(--accent);
+  color: var(--bg);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-family: "Sora", sans-serif;
+  font-size: 13px;
+  margin-top: 10px;
+  cursor: pointer;
+}
+
+.debug-alerts-result {
+  margin-top: 8px;
+  min-height: 16px;
 }
 .toggle input:checked + .slider {
   background: var(--toggle-on-bg);
