@@ -24,6 +24,15 @@ describe("Pomodoro timer state", () => {
     expect(formatTime(state.remainingSeconds)).toBe("25:00");
   });
 
+  test("restoring missing state gives 25:00 and paused", () => {
+    const state = restorePomodoroState(null, 1000);
+
+    expect(state.remainingSeconds).toBe(POMODORO_DEFAULT_DURATION_SECONDS);
+    expect(state.durationSeconds).toBe(POMODORO_DEFAULT_DURATION_SECONDS);
+    expect(state.isRunning).toBe(false);
+    expect(formatTime(state.remainingSeconds)).toBe("25:00");
+  });
+
   test("parse accepts mm:ss input", () => {
     expect(parsePomodoroTimeInput("0:01")).toBe(1);
     expect(parsePomodoroTimeInput("1:30")).toBe(90);
@@ -51,6 +60,19 @@ describe("Pomodoro timer state", () => {
     expect(state.isRunning).toBe(false);
     expect(state.lastUpdatedAt).toBe(2000);
     expect(formatTime(state.remainingSeconds)).toBe("01:30");
+  });
+
+  test("timer can be edited to 0:01 while paused", () => {
+    const state = setPomodoroDurationSeconds(
+      createInitialPomodoroState(1000),
+      parsePomodoroTimeInput("0:01"),
+      2000
+    );
+
+    expect(state.remainingSeconds).toBe(1);
+    expect(state.durationSeconds).toBe(1);
+    expect(state.isRunning).toBe(false);
+    expect(formatTime(state.remainingSeconds)).toBe("00:01");
   });
 
   test("duration cannot be changed while running", () => {
@@ -136,6 +158,56 @@ describe("Pomodoro timer state", () => {
     };
 
     expect(restorePomodoroState(saved, 10000)).toEqual(saved);
+  });
+
+  test("invalid zero-second saved state restores to 25:00 paused", () => {
+    const saved = {
+      remainingSeconds: 0,
+      durationSeconds: 0,
+      isRunning: false,
+      lastUpdatedAt: 5000,
+      completionFired: false,
+    };
+    const state = restorePomodoroState(saved, 10000);
+
+    expect(state.remainingSeconds).toBe(POMODORO_DEFAULT_DURATION_SECONDS);
+    expect(state.durationSeconds).toBe(POMODORO_DEFAULT_DURATION_SECONDS);
+    expect(state.isRunning).toBe(false);
+    expect(formatTime(state.remainingSeconds)).toBe("25:00");
+  });
+
+  test("completed saved state restores to 25:00 paused by default", () => {
+    const saved = {
+      remainingSeconds: 0,
+      durationSeconds: 1,
+      isRunning: false,
+      lastUpdatedAt: 5000,
+      completionFired: true,
+    };
+    const state = restorePomodoroState(saved, 10000);
+
+    expect(state.remainingSeconds).toBe(POMODORO_DEFAULT_DURATION_SECONDS);
+    expect(state.durationSeconds).toBe(POMODORO_DEFAULT_DURATION_SECONDS);
+    expect(state.isRunning).toBe(false);
+    expect(formatTime(state.remainingSeconds)).toBe("25:00");
+  });
+
+  test("completed state can be preserved for the live completion display", () => {
+    const saved = {
+      remainingSeconds: 0,
+      durationSeconds: 1,
+      isRunning: false,
+      lastUpdatedAt: 5000,
+      completionFired: true,
+    };
+    const state = restorePomodoroState(saved, 10000, {
+      preserveCompleted: true,
+    });
+
+    expect(state.remainingSeconds).toBe(0);
+    expect(state.durationSeconds).toBe(1);
+    expect(state.isRunning).toBe(false);
+    expect(formatTime(state.remainingSeconds)).toBe("00:00");
   });
 
   test("countdown logic reduces remaining time", () => {

@@ -117,7 +117,7 @@
   }
 
   // Normalize stored state so stale or malformed values cannot break the extension.
-  function restorePomodoroState(savedState, now = Date.now()) {
+  function restorePomodoroState(savedState, now = Date.now(), options = {}) {
     if (!savedState || typeof savedState.remainingSeconds !== "number") {
       return createInitialPomodoroState(now);
     }
@@ -126,6 +126,13 @@
       normalizePomodoroDurationSeconds(
         resolveSavedDurationSeconds(savedState)
       ) || POMODORO_DEFAULT_DURATION_SECONDS;
+
+    if (
+      !options.preserveCompleted &&
+      (savedState.remainingSeconds <= 0 || savedState.completionFired)
+    ) {
+      return createInitialPomodoroState(now);
+    }
 
     return tickPomodoro(
       {
