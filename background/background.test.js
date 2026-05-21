@@ -139,6 +139,23 @@ describe("manifest background registration", () => {
         "tabs",
       ])
     );
+    expect(
+      fs.readFileSync(
+        path.join(__dirname, "..", "offscreen", "pomodoro-alarm.html"),
+        "utf8"
+      )
+    ).toContain('<script src="pomodoro-alarm.js"></script>');
+    expect(
+      fs.readFileSync(
+        path.join(__dirname, "..", "offscreen", "pomodoro-alarm.js"),
+        "utf8"
+      )
+    ).toContain('message.action !== "pomodoro:playAlarmSound"');
+    expect(
+      fs.existsSync(
+        path.join(__dirname, "..", "assets", "sounds", "pomodoro-alarm.wav")
+      )
+    ).toBe(true);
   });
 });
 
@@ -381,6 +398,49 @@ describe("FocusKit background service worker", () => {
       },
       expect.any(Function)
     );
+    expect(chrome.__storage.pomodoroCompletionEffects).toMatchObject({
+      source: "alarm",
+      notificationRequested: true,
+      soundRequested: true,
+    });
+
+    Date.now.mockRestore();
+  });
+
+  test("popup completion request fires notification and sound after visible timer reaches zero", async () => {
+    jest.spyOn(Date, "now").mockReturnValue(2000000);
+    const { chrome } = loadBackground({
+      notifications: true,
+      sound: true,
+      pomodoroState: {
+        remainingSeconds: 0,
+        durationSeconds: 1,
+        isRunning: false,
+        lastUpdatedAt: 1999000,
+        completionFired: false,
+      },
+    });
+
+    const response = await sendMessage(chrome, {
+      action: "pomodoro:complete",
+      source: "popup",
+    });
+
+    expect(response.success).toBe(true);
+    expect(response.completed).toBe(true);
+    expect(chrome.__storage.pomodoroState).toMatchObject({
+      remainingSeconds: 0,
+      durationSeconds: 1,
+      isRunning: false,
+      completionFired: true,
+    });
+    expect(chrome.notifications.create).toHaveBeenCalledTimes(1);
+    expect(chrome.offscreen.createDocument).toHaveBeenCalledTimes(1);
+    expect(chrome.__storage.pomodoroCompletionEffects).toMatchObject({
+      source: "popup",
+      notificationRequested: true,
+      soundRequested: true,
+    });
 
     Date.now.mockRestore();
   });
@@ -449,11 +509,34 @@ describe("FocusKit background service worker", () => {
 
     await chrome.__listeners.alarms[0]({ name: "focuskit:pomodoro" });
     await chrome.__listeners.alarms[0]({ name: "focuskit:pomodoro" });
+    await sendMessage(chrome, { action: "pomodoro:complete" });
 
     expect(chrome.notifications.create).toHaveBeenCalledTimes(1);
     expect(chrome.offscreen.createDocument).toHaveBeenCalledTimes(1);
 
     Date.now.mockRestore();
+  });
+
+  test("records notification creation errors instead of swallowing them", async () => {
+    const { background, chrome } = loadBackground({
+      notifications: true,
+      sound: false,
+    });
+    chrome.notifications.create.mockImplementation((id, options, callback) => {
+      chrome.runtime.lastError = { message: "Notifications are blocked" };
+      callback();
+      chrome.runtime.lastError = null;
+    });
+
+    const result = await background.notifyPomodoroComplete();
+
+    expect(result).toEqual({
+      success: false,
+      error: "Notifications are blocked",
+    });
+    expect(chrome.__storage.lastPomodoroNotificationError).toBe(
+      "Notifications are blocked"
+    );
   });
 
   test("reset and start clear the completion guard for a future session", async () => {

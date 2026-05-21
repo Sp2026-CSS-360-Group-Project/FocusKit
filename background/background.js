@@ -24,6 +24,7 @@ const focusModeHelpers =
 const POMODORO_ALARM_NAME = "focuskit:pomodoro";
 const POMODORO_ALARM_SOUND_PATH = "assets/sounds/pomodoro-alarm.wav";
 const POMODORO_COMPLETE_NOTIFICATION_ID = "focuskit-pomodoro-complete";
+const POMODORO_ICON_PATH = "icons/icon48.png";
 // Separate id prevents the break notification overwriting the complete notification.
 const POMODORO_BREAK_NOTIFICATION_ID = "focuskit-pomodoro-break";
 
@@ -34,6 +35,7 @@ const MESSAGE_ACTIONS = {
   pomodoroPause: "pomodoro:pause",
   pomodoroReset: "pomodoro:reset",
   pomodoroSetDuration: "pomodoro:setDuration",
+  pomodoroComplete: "pomodoro:complete",
   focusSetMode: "focus:setMode",
 };
 
@@ -134,6 +136,10 @@ async function handleMessageAsync(message) {
     return applyPomodoroDuration(message.seconds);
   }
 
+  if (message.action === MESSAGE_ACTIONS.pomodoroComplete) {
+    return completePomodoroSession(message.source || "popup");
+  }
+
   if (message.action === MESSAGE_ACTIONS.focusSetMode) {
     return applyFocusMode(message.modeId);
   }
@@ -150,30 +156,20 @@ async function handleAlarm(alarm) {
   const data = await getStorage([POMODORO_STORAGE_KEY]);
   const previousState = data[POMODORO_STORAGE_KEY] || resetPomodoro();
   const nextState = tickPomodoro(previousState);
-  await setStorage({ [POMODORO_STORAGE_KEY]: nextState });
-  broadcastPomodoroState(nextState);
 
   if (!nextState.isRunning) {
-    await clearPomodoroAlarm();
-
     if (
       previousState.isRunning &&
       previousState.remainingSeconds > 0 &&
       !previousState.completionFired
     ) {
-      const completedState = { ...nextState, completionFired: true };
-      await setStorage({ [POMODORO_STORAGE_KEY]: completedState });
-      broadcastPomodoroState(completedState);
-
-      await handlePomodoroComplete();
-
-      // If pomodoroState transitions into a break after completion, notify break start.
-      // A break phase is indicated when the next cycle sets isBreak = true.
-      if (completedState.isBreak) {
-        await notifyBreakStart();
-      }
+      await completePomodoroSession("alarm", nextState);
+      return;
     }
   }
+
+  await setStorage({ [POMODORO_STORAGE_KEY]: nextState });
+  broadcastPomodoroState(nextState);
 }
 
 // Read, normalize, persist, and return the current timer state.
@@ -207,6 +203,43 @@ async function applyPomodoroDuration(seconds) {
   broadcastPomodoroState(state);
 
   return { success: true, state };
+}
+
+// Complete a Pomodoro through one background-owned path for alarms and popups.
+async function completePomodoroSession(source = "background", stateOverride) {
+  const currentState = stateOverride || (await readPomodoroState());
+
+  if (currentState.completionFired) {
+    return { success: true, completed: false, state: currentState };
+  }
+
+  const completedState = {
+    ...currentState,
+    remainingSeconds: 0,
+    isRunning: false,
+    completionFired: true,
+    lastUpdatedAt: Date.now(),
+  };
+
+  await clearPomodoroAlarm();
+  await setStorage({ [POMODORO_STORAGE_KEY]: completedState });
+
+  const effects = await handlePomodoroComplete(source);
+  await setStorage({
+    pomodoroCompletionEffects: {
+      source,
+      completedAt: completedState.lastUpdatedAt,
+      ...effects,
+    },
+  });
+
+  broadcastPomodoroState(completedState);
+
+  if (completedState.isBreak) {
+    await notifyBreakStart();
+  }
+
+  return { success: true, completed: true, state: completedState, effects };
 }
 
 // Apply a timer transition, persist it, update alarms, and inform open popup views.
@@ -265,16 +298,26 @@ function clearPomodoroAlarm() {
 }
 
 // Dispatch all user-facing completion effects, honoring Settings toggles.
-async function handlePomodoroComplete() {
+async function handlePomodoroComplete(source = "background") {
   const settings = await getStorage(["notifications", "sound"]);
+  const effects = {
+    source,
+    notificationRequested: false,
+    notificationResult: null,
+    soundRequested: false,
+  };
 
   if (settings.notifications !== false) {
-    await notifyPomodoroComplete();
+    effects.notificationRequested = true;
+    effects.notificationResult = await notifyPomodoroComplete();
   }
 
   if (settings.sound === true) {
+    effects.soundRequested = true;
     await playPomodoroAlarmSound();
   }
+
+  return effects;
 }
 
 // Notify the user when a focus sprint ends. Skipped if notifications are disabled.
@@ -282,20 +325,38 @@ async function notifyPomodoroComplete() {
   // Clear any stale break notification before showing the complete one.
   await clearNotification(POMODORO_BREAK_NOTIFICATION_ID);
 
-  await new Promise((resolve) => {
+  return new Promise((resolve) => {
     chrome.notifications.create(
       POMODORO_COMPLETE_NOTIFICATION_ID,
       {
         type: "basic",
         iconUrl:
           typeof chrome.runtime.getURL === "function"
-            ? chrome.runtime.getURL("icons/icon48.png")
-            : "icons/icon48.png",
+            ? chrome.runtime.getURL(POMODORO_ICON_PATH)
+            : POMODORO_ICON_PATH,
         title: "Focus sprint complete",
         message:
           "Your Pomodoro is done. Take a short reset before the next block.",
       },
-      () => resolve()
+      () => {
+        const errorMessage = chrome.runtime.lastError
+          ? chrome.runtime.lastError.message
+          : "";
+
+        if (errorMessage) {
+          setStorage({ lastPomodoroNotificationError: errorMessage }).then(
+            () => {
+              console.error(`Pomodoro notification failed: ${errorMessage}`);
+              resolve({ success: false, error: errorMessage });
+            }
+          );
+          return;
+        }
+
+        setStorage({ lastPomodoroNotificationError: "" }).then(() =>
+          resolve({ success: true })
+        );
+      }
     );
   });
 }
@@ -493,6 +554,7 @@ if (typeof module !== "undefined") {
     POMODORO_COMPLETE_NOTIFICATION_ID,
     applyPomodoroDuration,
     applyFocusMode,
+    completePomodoroSession,
     handleAlarm,
     handleInstalled,
     handleMessage,

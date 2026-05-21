@@ -95,16 +95,23 @@ async function expectPomodoroWorks(page) {
   await page.waitForFunction(
     () =>
       new Promise((resolve) => {
-        chrome.storage.local.get(["pomodoroState"], (data) => {
-          resolve(
-            Boolean(
-              data.pomodoroState &&
-              data.pomodoroState.remainingSeconds === 0 &&
-              data.pomodoroState.isRunning === false &&
-              data.pomodoroState.completionFired === true
-            )
-          );
-        });
+        chrome.storage.local.get(
+          ["pomodoroState", "pomodoroCompletionEffects"],
+          (data) => {
+            resolve(
+              Boolean(
+                data.pomodoroState &&
+                data.pomodoroState.remainingSeconds === 0 &&
+                data.pomodoroState.isRunning === false &&
+                data.pomodoroState.completionFired === true &&
+                data.pomodoroCompletionEffects &&
+                data.pomodoroCompletionEffects.source === "popup" &&
+                data.pomodoroCompletionEffects.notificationRequested === true &&
+                data.pomodoroCompletionEffects.soundRequested === true
+              )
+            );
+          }
+        );
       }),
     null,
     { timeout: 5000 }

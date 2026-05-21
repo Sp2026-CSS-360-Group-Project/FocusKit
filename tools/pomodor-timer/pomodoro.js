@@ -224,13 +224,26 @@ function applyPomodoroTimeInput() {
 function startPomodoroInterval() {
   stopPomodoroInterval();
   pomodoroIntervalId = setInterval(() => {
-    pomodoroState = tickPomodoro(pomodoroState);
-    renderPomodoro(pomodoroState);
-    persistPomodoroState(pomodoroState);
+    const previousState = pomodoroState;
+    const nextState = tickPomodoro(pomodoroState);
 
-    if (!pomodoroState.isRunning) {
+    pomodoroState = nextState;
+    renderPomodoro(pomodoroState);
+
+    if (!nextState.isRunning) {
       stopPomodoroInterval();
+      if (previousState.isRunning && previousState.remainingSeconds > 0) {
+        sendBackgroundMessage(
+          { action: "pomodoro:complete", source: "popup" },
+          (response) => {
+            handlePomodoroResponse(response);
+          }
+        );
+      }
+      return;
     }
+
+    persistPomodoroState(pomodoroState);
   }, 1000);
 }
 
