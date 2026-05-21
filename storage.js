@@ -1,12 +1,14 @@
-// Shared storage helpers and default settings for the FocusKit extension.
+/* global chrome */
 
 const DEFAULT_SETTINGS = {
-  // Add when settings is created
+  notifications: true,
+  sound: false,
+  dark: true,
 };
 
-const DEFAULT_FOCUS_MODES = [];
+const DEFAULT_SESSIONS = [];
 
-export async function saveSettings(settings) {
+async function saveSettings(settings) {
   try {
     await chrome.storage.local.set({ settings });
   } catch (error) {
@@ -14,7 +16,7 @@ export async function saveSettings(settings) {
   }
 }
 
-export async function loadSettings() {
+async function loadSettings() {
   try {
     const result = await chrome.storage.local.get("settings");
     return result.settings ?? DEFAULT_SETTINGS;
@@ -24,20 +26,30 @@ export async function loadSettings() {
   }
 }
 
-export async function saveFocusModes(modes) {
+async function saveSession(session) {
   try {
-    await chrome.storage.local.set({ focusModes: modes });
+    const sessions = await loadSessions();
+    sessions.push(session);
+    await chrome.storage.local.set({ sessions });
   } catch (error) {
-    console.error("Failed to save focus modes:", error);
+    console.error("Failed to save session:", error);
   }
 }
 
-export async function loadFocusModes() {
+async function loadSessions() {
   try {
-    const result = await chrome.storage.local.get("focusModes");
-    return result.focusModes ?? DEFAULT_FOCUS_MODES;
+    const result = await chrome.storage.local.get("sessions");
+    return result.sessions ?? DEFAULT_SESSIONS;
   } catch (error) {
-    console.error("Failed to load focus modes:", error);
-    return DEFAULT_FOCUS_MODES;
+    console.error("Failed to load sessions:", error);
+    return DEFAULT_SESSIONS;
   }
+}
+
+if (typeof globalThis !== "undefined") {
+  globalThis.FocusKitStorage = { saveSettings, loadSettings, saveSession, loadSessions };
+}
+
+if (typeof module !== "undefined") {
+  module.exports = { saveSettings, loadSettings, saveSession, loadSessions };
 }
