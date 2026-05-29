@@ -130,7 +130,7 @@ function handlePomodoroStart() {
     renderPomodoro(pomodoroState);
     startPomodoroInterval();
     persistPomodoroState(pomodoroState);
-  } catch (e) {
+  } catch {
     // ignore
   }
 }
@@ -144,7 +144,7 @@ function handlePomodoroPause() {
     renderPomodoro(pomodoroState);
     stopPomodoroInterval();
     persistPomodoroState(pomodoroState);
-  } catch (e) {
+  } catch {
     // ignore
   }
 
@@ -168,7 +168,7 @@ function handlePomodoroReset() {
     renderPomodoro(pomodoroState);
     stopPomodoroInterval();
     persistPomodoroState(pomodoroState);
-  } catch (e) {
+  } catch {
     // ignore
   }
 }
