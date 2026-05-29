@@ -140,6 +140,23 @@ async function expectPomodoroWorks(page) {
   await expect(display).toHaveText("00:00");
 
   await page.reload({ waitUntil: "domcontentloaded" });
+  await page.evaluate(
+    () =>
+      new Promise((resolve) => {
+        chrome.storage.local.set(
+          {
+            pomodoroState: {
+              remainingSeconds: 1500,
+              durationSeconds: 1500,
+              isRunning: false,
+              lastUpdatedAt: Date.now(),
+              completionFired: false,
+            },
+          },
+          resolve
+        );
+      })
+  );
   await page.getByRole("button", { name: "Launch Pomodoro" }).click();
   await expect(panel).toBeVisible();
   await expect(display).toHaveText("25:00");
