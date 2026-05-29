@@ -1,3 +1,4 @@
+/* global FocusKitStorage */
 // background.js - MV3 service worker for timers, notifications, tabs, and popup messages.
 
 // Load shared Pomodoro state helpers when running as a Chrome service worker.
@@ -5,7 +6,7 @@ if (
   typeof importScripts === "function" &&
   typeof FocusKitPomodoroState === "undefined"
 ) {
-  importScripts("../tools/pomodor-timer/pomodoroState.js");
+  importScripts("../tools/pomodoro-timer/pomodoroState.js");
 }
 
 if (
@@ -13,18 +14,26 @@ if (
   typeof FocusKitModes === "undefined"
 ) {
   importScripts("../tools/focus-modes/focusModes.js");
+  importScripts("../storage.js");
 }
 
 // Reuse shared state helpers in Jest without duplicating timer rules in the worker.
 const pomodoroHelpers =
   typeof FocusKitPomodoroState !== "undefined"
     ? FocusKitPomodoroState
-    : require("../tools/pomodor-timer/pomodoroState.js");
+    : require("../tools/pomodoro-timer/pomodoroState.js");
 
 const focusModeHelpers =
   typeof FocusKitModes !== "undefined"
     ? FocusKitModes
     : require("../tools/focus-modes/focusModes.js");
+
+const storageHelpers =
+  typeof FocusKitStorage !== "undefined"
+    ? FocusKitStorage
+    : require("../storage.js");
+
+const { saveSession } = storageHelpers;
 
 // Keep background command names centralized so popup and tests use one message surface.
 const POMODORO_ALARM_NAME = "focuskit:pomodoro";
@@ -370,6 +379,11 @@ async function testDebugAlerts() {
 
 // Notify the user when a focus sprint ends. Skipped if notifications are disabled.
 async function notifyPomodoroComplete() {
+  // Record the session before anything else
+  await saveSession({
+    completedAt: Date.now(),
+    duration: 25,
+  });
   // Clear any stale break notification before showing the complete one.
   await clearNotification(POMODORO_BREAK_NOTIFICATION_ID);
   const notificationId = createNotificationId(
