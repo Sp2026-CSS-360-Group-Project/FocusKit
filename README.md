@@ -13,13 +13,15 @@ This project uses npm audit for dependency security analysis through
 `npm run security`.
 
 GitHub Actions enforces the static-analysis and test rules in
-`.github/workflows/ci.yml`. The workflow runs:
+`.github/workflows/static-analysis.yml` and `.github/workflows/unit-and-smoke-tests.yml`.
+The workflows run:
 
 ```bash
 npm ci
 npm run format:check
 npm run lint
 npm run security
+npm run test:unit
 npm test
 npm run smoke
 ```
@@ -109,6 +111,33 @@ http://localhost:5000
 Health check URL:
 
 http://localhost:5000/api/health
+
+## Manual Pomodoro Completion Test
+
+The Pomodoro alarm sound is a tiny generated local WAV file stored at
+`assets/sounds/pomodoro-alarm.wav`.
+
+To manually test the temporary debug alert button:
+
+1. Open Chrome and go to `chrome://extensions`.
+2. Reload FocusKit and open the service worker console.
+3. Open the popup and go to Settings.
+4. Click Test notification and sound.
+5. Confirm that a Chrome notification appears.
+6. Confirm that the local Pomodoro alarm sound plays.
+7. If either fails, check the visible debug result and service worker console.
+
+To manually test Pomodoro completion:
+
+1. Open Chrome and go to `chrome://extensions`.
+2. Turn on Developer mode and load this repository with Load unpacked.
+3. Open FocusKit, go to Settings, and enable Notifications and Sound effects.
+4. Open Tools, launch Pomodoro, click the large timer display, type `0:01`,
+   and confirm the timer shows `00:01`.
+5. Start Pomodoro and confirm the large timer is locked while running.
+6. Let the timer reach `0:00`.
+7. Confirm that a Chrome notification appears.
+8. Confirm that the local Pomodoro alarm sound plays.
 
 ## PR Links Accepted In The Past Week
 

@@ -68,6 +68,23 @@
             </label>
           </div>
         </div>
+        <!-- Temporary debug section for Pomodoro alert API verification. -->
+        <div class="debug-alerts" aria-label="Debug alerts">
+          <div>
+            <h2 class="debug-alerts-title">Debug alerts</h2>
+            <p class="debug-alerts-note">
+              Temporary debug control for verifying Pomodoro alert APIs.
+            </p>
+          </div>
+          <button class="debug-alerts-button" type="button" id="debugAlertsBtn">
+            Test notification and sound
+          </button>
+          <p
+            class="debug-alerts-result"
+            id="debugAlertsResult"
+            role="status"
+          ></p>
+        </div>
       </section>
     </div>
     <!--
@@ -79,9 +96,9 @@
     5. tools          - TOOLS and FOCUS_MODES registries
     6. popup          - wires everything together
   -->
-    <script src="tools/pomodor-timer/pomodoroState.js"></script>
+    <script src="tools/pomodoro-timer/pomodoroState.js"></script>
     <script src="storage.js"></script>
-    <script src="tools/pomodor-timer/pomodoro.js"></script>
+    <script src="tools/pomodoro-timer/pomodoro.js"></script>
     <script src="tools/focus-modes/focusModes.js"></script>
     <script src="tools.js"></script>
     <script src="popup.js"></script>

@@ -15,8 +15,8 @@
   --border: rgba(255, 255, 255, 0.12);
   --accent: #756fb6;
   --accent2: #59bad8;
-  --text: #f9fafb;
-  --muted: #9ca3af;
+  --text: #ffffff; /* changed text to white */
+  --muted: #9ca3af; /* muted text - gray in dark mode */
   --danger: #ff6b6b;
   --selected-bg: rgba(71, 212, 255, 0.12);
   --toggle-on-bg: rgba(232, 255, 71, 0.2);
@@ -249,12 +249,30 @@ body {
 
 .pomodoro-time {
   color: var(--text);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
   font-family: "Sora", sans-serif;
   font-size: 44px;
   font-weight: 500;
   letter-spacing: -0.08em;
   text-align: center;
   margin: 18px 0;
+  outline: none;
+}
+
+.pomodoro-time[contenteditable="true"] {
+  cursor: text;
+}
+
+.pomodoro-time[contenteditable="true"]:focus {
+  border-color: var(--accent2);
+  background: var(--selected-bg);
+}
+
+.pomodoro-time[contenteditable="false"] {
+  color: var(--muted);
+  cursor: default;
 }
 
 .pomodoro-actions {
@@ -406,10 +424,63 @@ body {
   transform: translateX(16px);
   background: var(--accent);
 }
+
+.debug-alerts {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 11px 13px;
+  margin-top: 12px;
+}
+
+.debug-alerts-title {
+  color: var(--text);
+  font-family: "Sora", sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.debug-alerts-note,
+.debug-alerts-result {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.debug-alerts-button {
+  background: var(--accent);
+  color: var(--bg);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-family: "Sora", sans-serif;
+  font-size: 13px;
+  margin-top: 10px;
+  cursor: pointer;
+}
+
+.debug-alerts-result {
+  margin-top: 8px;
+  min-height: 16px;
+}
 .toggle input:checked + .slider {
   background: var(--toggle-on-bg);
 }
 .toggle input:checked + .slider::before {
   transform: translateX(16px);
   background: var(--accent);
+}
+
+/* Focus card text - white in dark mode, black in light mode */
+.focus-name {
+  color: var(--text);
+}
+.focus-desc {
+  color: var(--muted);
+}
+.theme-light .focus-name,
+.theme-light .focus-desc,
+.theme-light .focus-card * {
+  color: #111827;
 }

@@ -5,7 +5,13 @@ if (
   typeof importScripts === "function" &&
   typeof FocusKitPomodoroState === "undefined"
 ) {
-  importScripts("../tools/pomodor-timer/pomodoroState.js");
+  importScripts("../tools/pomodoro-timer/pomodoroState.js");
+}
+
+if (
+  typeof importScripts === "function" &&
+  typeof FocusKitModes === "undefined"
+) {
   importScripts("../tools/focus-modes/focusModes.js");
   importScripts("../storage.js");
 }
@@ -14,7 +20,7 @@ if (
 const pomodoroHelpers =
   typeof FocusKitPomodoroState !== "undefined"
     ? FocusKitPomodoroState
-    : require("../tools/pomodor-timer/pomodoroState.js");
+    : require("../tools/pomodoro-timer/pomodoroState.js");
 
 const focusModeHelpers =
   typeof FocusKitModes !== "undefined"
@@ -30,7 +36,11 @@ const { saveSession } = storageHelpers;
 
 // Keep background command names centralized so popup and tests use one message surface.
 const POMODORO_ALARM_NAME = "focuskit:pomodoro";
+const POMODORO_ALARM_SOUND_PATH = "assets/sounds/pomodoro-alarm.wav";
 const POMODORO_COMPLETE_NOTIFICATION_ID = "focuskit-pomodoro-complete";
+const POMODORO_ICON_PATH = "icons/icon48.png";
+const POMODORO_NOTIFICATION_TIMEOUT_MS = 2000;
+const POMODORO_SOUND_TIMEOUT_MS = 2000;
 // Separate id prevents the break notification overwriting the complete notification.
 const POMODORO_BREAK_NOTIFICATION_ID = "focuskit-pomodoro-break";
 
@@ -40,19 +50,28 @@ const MESSAGE_ACTIONS = {
   pomodoroStart: "pomodoro:start",
   pomodoroPause: "pomodoro:pause",
   pomodoroReset: "pomodoro:reset",
+  pomodoroSetDuration: "pomodoro:setDuration",
+  pomodoroComplete: "pomodoro:complete",
+  debugTestAlerts: "debug:testAlerts",
   focusSetMode: "focus:setMode",
 };
 
 const {
   POMODORO_STORAGE_KEY,
+  normalizePomodoroDurationSeconds,
   pausePomodoro,
   resetPomodoro,
   restorePomodoroState,
+  setPomodoroDurationSeconds,
   startPomodoro,
   tickPomodoro,
 } = pomodoroHelpers;
 
-const { loadFocusModes, FOCUS_MODES_STORAGE_KEY } = focusModeHelpers;
+const { loadFocusModes: loadFocusModesFromStorage } = focusModeHelpers;
+
+function createNotificationId(prefix) {
+  return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
 
 // Register service worker listeners only when Chrome APIs are available.
 if (typeof chrome !== "undefined" && chrome.runtime) {
@@ -125,12 +144,25 @@ async function handleMessageAsync(message) {
   }
 
   if (message.action === MESSAGE_ACTIONS.pomodoroReset) {
-    const state = resetPomodoro();
+    const currentState = await readPomodoroState();
+    const state = resetPomodoro(currentState);
     await setStorage({ [POMODORO_STORAGE_KEY]: state });
     await clearPomodoroAlarm();
     broadcastPomodoroState(state);
 
     return { success: true, state };
+  }
+
+  if (message.action === MESSAGE_ACTIONS.pomodoroSetDuration) {
+    return applyPomodoroDuration(message.seconds);
+  }
+
+  if (message.action === MESSAGE_ACTIONS.pomodoroComplete) {
+    return completePomodoroSession(message.source || "popup");
+  }
+
+  if (message.action === MESSAGE_ACTIONS.debugTestAlerts) {
+    return testDebugAlerts();
   }
 
   if (message.action === MESSAGE_ACTIONS.focusSetMode) {
@@ -149,23 +181,20 @@ async function handleAlarm(alarm) {
   const data = await getStorage([POMODORO_STORAGE_KEY]);
   const previousState = data[POMODORO_STORAGE_KEY] || resetPomodoro();
   const nextState = tickPomodoro(previousState);
-  await setStorage({ [POMODORO_STORAGE_KEY]: nextState });
-  broadcastPomodoroState(nextState);
 
   if (!nextState.isRunning) {
-    await clearPomodoroAlarm();
-
-    if (previousState.isRunning && previousState.remainingSeconds > 0) {
-      // Notify for session end. Then check if a break phase is starting.
-      await notifyPomodoroComplete();
-
-      // If pomodoroState transitions into a break after completion, notify break start.
-      // A break phase is indicated when the next cycle sets isBreak = true.
-      if (nextState.isBreak) {
-        await notifyBreakStart();
-      }
+    if (
+      previousState.isRunning &&
+      previousState.remainingSeconds > 0 &&
+      !previousState.completionFired
+    ) {
+      await completePomodoroSession("alarm", nextState);
+      return;
     }
   }
+
+  await setStorage({ [POMODORO_STORAGE_KEY]: nextState });
+  broadcastPomodoroState(nextState);
 }
 
 // Read, normalize, persist, and return the current timer state.
@@ -175,6 +204,68 @@ async function getCurrentPomodoroState() {
   await syncPomodoroAlarm(state);
 
   return state;
+}
+
+// Apply a user-selected paused Pomodoro duration.
+async function applyPomodoroDuration(seconds) {
+  if (!normalizePomodoroDurationSeconds(seconds)) {
+    return { success: false, error: "Invalid Pomodoro duration" };
+  }
+
+  const currentState = await readPomodoroState();
+
+  if (currentState.isRunning) {
+    return {
+      success: false,
+      error: "Cannot change duration while Pomodoro runs",
+      state: currentState,
+    };
+  }
+
+  const state = setPomodoroDurationSeconds(currentState, seconds);
+  await setStorage({ [POMODORO_STORAGE_KEY]: state });
+  await clearPomodoroAlarm();
+  broadcastPomodoroState(state);
+
+  return { success: true, state };
+}
+
+// Complete a Pomodoro through one background-owned path for alarms and popups.
+async function completePomodoroSession(source = "background", stateOverride) {
+  const currentState =
+    stateOverride || (await readPomodoroState({ preserveCompleted: true }));
+
+  if (currentState.completionFired) {
+    return { success: true, completed: false, state: currentState };
+  }
+
+  const completedState = {
+    ...currentState,
+    remainingSeconds: 0,
+    isRunning: false,
+    completionFired: true,
+    lastUpdatedAt: Date.now(),
+  };
+
+  await clearPomodoroAlarm();
+  await setStorage({ [POMODORO_STORAGE_KEY]: completedState });
+
+  const effects = await handlePomodoroComplete(source);
+  await setStorage({
+    pomodoroCompletionEffects: {
+      source,
+      completedAt: completedState.lastUpdatedAt,
+      ...effects,
+    },
+  });
+
+  broadcastPomodoroState(completedState);
+
+  if (completedState.isBreak) {
+    await notifyBreakStart();
+  }
+
+  return { success: true, completed: true, state: completedState, effects };
 }
 
 // Apply a timer transition, persist it, update alarms, and inform open popup views.
@@ -197,10 +288,10 @@ async function updatePomodoroState(transition, shouldRunAlarm, overrideState) {
 }
 
 // Normalize saved timer state before any service worker operation uses it.
-async function readPomodoroState() {
+async function readPomodoroState(options = {}) {
   const data = await getStorage([POMODORO_STORAGE_KEY]);
 
-  return restorePomodoroState(data[POMODORO_STORAGE_KEY]);
+  return restorePomodoroState(data[POMODORO_STORAGE_KEY], Date.now(), options);
 }
 
 // Keep the alarm schedule aligned with persisted timer state after lifecycle events.
@@ -232,6 +323,59 @@ function clearPomodoroAlarm() {
   });
 }
 
+// Dispatch all user-facing completion effects, honoring Settings toggles.
+async function handlePomodoroComplete(source = "background") {
+  const settings = await getStorage(["notifications", "sound"]);
+  const effects = {
+    source,
+    notificationRequested: false,
+    notificationResult: null,
+    soundRequested: false,
+  };
+
+  if (settings.notifications !== false) {
+    effects.notificationRequested = true;
+    effects.notificationResult = await notifyPomodoroComplete();
+  }
+
+  if (settings.sound === true) {
+    effects.soundRequested = true;
+    effects.soundResult = await playPomodoroAlarmSound();
+  }
+
+  return effects;
+}
+
+// Temporary manual debug action for testing notification and audio APIs directly.
+async function testDebugAlerts() {
+  const result = {
+    notificationRequested: true,
+    soundRequested: true,
+    errors: [],
+  };
+
+  const notificationResult = await notifyPomodoroComplete();
+  result.notificationResult = notificationResult;
+
+  if (notificationResult && notificationResult.error) {
+    result.errors.push(notificationResult.error);
+  }
+
+  try {
+    result.soundResult = await playPomodoroAlarmSound();
+    if (result.soundResult && result.soundResult.error) {
+      result.errors.push(result.soundResult.error);
+    }
+  } catch (error) {
+    const message = error.message || "Pomodoro alarm sound failed";
+    console.error(`Pomodoro alarm sound failed: ${message}`);
+    result.soundResult = { success: false, error: message };
+    result.errors.push(message);
+  }
+
+  return result;
+}
+
 // Notify the user when a focus sprint ends. Skipped if notifications are disabled.
 async function notifyPomodoroComplete() {
   // Record the session before anything else
@@ -239,31 +383,144 @@ async function notifyPomodoroComplete() {
     completedAt: Date.now(),
     duration: 25,
   });
+  // Clear any stale break notification before showing the complete one.
+  await clearNotification(POMODORO_BREAK_NOTIFICATION_ID);
+  const notificationId = createNotificationId(
+    POMODORO_COMPLETE_NOTIFICATION_ID
+  );
 
-  const settings = await getStorage(["notifications"]);
+  return withTimeout(
+    new Promise((resolve) => {
+      chrome.notifications.create(
+        notificationId,
+        {
+          type: "basic",
+          iconUrl:
+            typeof chrome.runtime.getURL === "function"
+              ? chrome.runtime.getURL(POMODORO_ICON_PATH)
+              : POMODORO_ICON_PATH,
+          title: "Focus sprint complete",
+          message:
+            "Your Pomodoro is done. Take a short reset before the next block.",
+        },
+        () => {
+          const errorMessage = chrome.runtime.lastError
+            ? chrome.runtime.lastError.message
+            : "";
 
-  if (settings.notifications === false) {
+          if (errorMessage) {
+            setStorage({ lastPomodoroNotificationError: errorMessage }).then(
+              () => {
+                console.error(`Pomodoro notification failed: ${errorMessage}`);
+                resolve({
+                  success: false,
+                  error: errorMessage,
+                  notificationId,
+                });
+              }
+            );
+            return;
+          }
+
+          setStorage({ lastPomodoroNotificationError: "" }).then(() =>
+            resolve({ success: true, notificationId })
+          );
+        }
+      );
+    }),
+    POMODORO_NOTIFICATION_TIMEOUT_MS,
+    "Pomodoro notification timed out"
+  );
+}
+
+// Ask an MV3 offscreen document to play the local Pomodoro alarm sound.
+async function playPomodoroAlarmSound() {
+  if (!chrome.offscreen || !chrome.runtime || !chrome.runtime.sendMessage) {
+    return { success: false, error: "Offscreen audio APIs are unavailable" };
+  }
+
+  const offscreenResult = await withTimeout(
+    ensureAlarmOffscreenDocument().then(() => ({ success: true })),
+    POMODORO_SOUND_TIMEOUT_MS,
+    "Pomodoro offscreen audio setup timed out"
+  );
+
+  if (!offscreenResult.success) {
+    return offscreenResult;
+  }
+
+  return withTimeout(
+    new Promise((resolve) => {
+      chrome.runtime.sendMessage(
+        {
+          action: "pomodoro:playAlarmSound",
+          soundPath:
+            typeof chrome.runtime.getURL === "function"
+              ? chrome.runtime.getURL(POMODORO_ALARM_SOUND_PATH)
+              : POMODORO_ALARM_SOUND_PATH,
+        },
+        (response) => {
+          const errorMessage = chrome.runtime.lastError
+            ? chrome.runtime.lastError.message
+            : "";
+
+          if (errorMessage) {
+            resolve({ success: false, error: errorMessage });
+            return;
+          }
+
+          if (response && response.success === false) {
+            resolve(response);
+            return;
+          }
+
+          resolve({ success: true });
+        }
+      );
+    }),
+    POMODORO_SOUND_TIMEOUT_MS,
+    "Pomodoro alarm sound timed out"
+  );
+}
+
+// Create the offscreen audio page once, then reuse it for future sessions.
+async function ensureAlarmOffscreenDocument() {
+  const url = "offscreen/pomodoro-alarm.html";
+
+  if (
+    typeof chrome.offscreen.hasDocument === "function" &&
+    (await chrome.offscreen.hasDocument())
+  ) {
     return;
   }
 
-  // Clear any stale break notification before showing the complete one.
-  await clearNotification(POMODORO_BREAK_NOTIFICATION_ID);
+  await chrome.offscreen.createDocument({
+    url,
+    reasons: [chrome.offscreen.Reason.AUDIO_PLAYBACK],
+    justification: "Play the Pomodoro completion alarm sound.",
+  });
+}
 
-  await new Promise((resolve) => {
-    chrome.notifications.create(
-      POMODORO_COMPLETE_NOTIFICATION_ID,
-      {
-        type: "basic",
-        iconUrl:
-          typeof chrome.runtime.getURL === "function"
-            ? chrome.runtime.getURL("icons/icon48.png")
-            : "icons/icon48.png",
-        title: "Focus sprint complete",
-        message:
-          "Your Pomodoro is done. Take a short reset before the next block.",
-      },
-      () => resolve()
+// Keep debug/manual alert checks from hanging forever if an extension API stalls.
+function withTimeout(promise, timeoutMs, message) {
+  return new Promise((resolve) => {
+    const timeoutId = setTimeout(
+      () => resolve({ success: false, error: message }),
+      timeoutMs
     );
+
+    promise
+      .then((value) => {
+        clearTimeout(timeoutId);
+        resolve(value);
+      })
+      .catch((error) => {
+        clearTimeout(timeoutId);
+        resolve({
+          success: false,
+          error: error.message || message,
+        });
+      });
   });
 }
 
@@ -277,10 +534,11 @@ async function notifyBreakStart() {
 
   // Clear the complete notification so the break one is the only one visible.
   await clearNotification(POMODORO_COMPLETE_NOTIFICATION_ID);
+  const notificationId = createNotificationId(POMODORO_BREAK_NOTIFICATION_ID);
 
   await new Promise((resolve) => {
     chrome.notifications.create(
-      POMODORO_BREAK_NOTIFICATION_ID,
+      notificationId,
       {
         type: "basic",
         iconUrl:
@@ -291,6 +549,8 @@ async function notifyBreakStart() {
       () => resolve()
     );
   });
+
+  return notificationId;
 }
 
 // Safely clear a notification without throwing if it does not exist.
@@ -361,7 +621,7 @@ async function applyFocusMode(modeId) {
 // Look up a mode definition from storage by id, returning null if not found.
 function resolveModeById(modeId) {
   return new Promise((resolve) => {
-    loadFocusModes((modes) => {
+    loadFocusModesFromStorage((modes) => {
       resolve(modes.find((m) => m.id === modeId) || null);
     });
   });
@@ -412,15 +672,22 @@ if (typeof module !== "undefined") {
   module.exports = {
     MESSAGE_ACTIONS,
     POMODORO_ALARM_NAME,
+    POMODORO_ALARM_SOUND_PATH,
     POMODORO_BREAK_NOTIFICATION_ID,
     POMODORO_COMPLETE_NOTIFICATION_ID,
+    createNotificationId,
+    applyPomodoroDuration,
     applyFocusMode,
+    completePomodoroSession,
     handleAlarm,
     handleInstalled,
     handleMessage,
     handleMessageAsync,
+    handlePomodoroComplete,
     handleStartup,
     notifyBreakStart,
     notifyPomodoroComplete,
+    playPomodoroAlarmSound,
+    testDebugAlerts,
   };
 }
