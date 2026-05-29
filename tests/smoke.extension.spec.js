@@ -361,8 +361,6 @@ test("FocusKit popup renders core features without console errors", async () => 
     await page
       .getByRole("button", { name: "Test notification and sound" })
       .click();
-    // The debug alert probe is temporary and can stall in headless Chromium,
-    // so the smoke test only verifies the control is present and clickable.
 
     const dark = page.locator("#settingDark");
     const darkModeSettingRow = page.locator(".setting-row", {
