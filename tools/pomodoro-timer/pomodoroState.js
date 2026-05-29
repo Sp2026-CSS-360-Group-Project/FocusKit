@@ -2,7 +2,7 @@
 
 (() => {
   // Keep the timer duration and storage key centralized across extension contexts.
-  const POMODORO_DURATION_SECONDS = 25 * 60;
+  const POMODORO_DURATION_SECONDS = 1 * 60;
   const POMODORO_STORAGE_KEY = "pomodoroState";
 
   // Build a fresh paused Pomodoro state using an injectable timestamp for tests.

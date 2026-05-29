@@ -1,5 +1,5 @@
+/* global FocusKitStorage */
 // pomodoro.js - FocusKit Pomodoro timer state and popup UI.
-
 // Load shared timer helpers from pomodoroState.js in Chrome and from require() in Jest.
 const pomodoroStateHelpers =
   typeof FocusKitPomodoroState !== "undefined"
@@ -29,6 +29,7 @@ function openPomodoroPanel() {
   toolsList.hidden = true;
   panel.hidden = false;
   loadPomodoroState();
+  loadPomodoroStats();
 }
 
 // Hide the Pomodoro panel and stop any active popup interval.
@@ -64,6 +65,16 @@ function getPomodoroPanel() {
       <button class="pomodoro-button" type="button" id="pomodoroPause">Pause</button>
       <button class="pomodoro-button" type="button" id="pomodoroReset">Reset</button>
       <button class="pomodoro-button secondary" type="button" id="pomodoroClose">Close</button>
+    </div>
+    <div class="pomodoro-stats">
+      <div class="pomodoro-stat">
+        <span class="pomodoro-stat-value" id="statToday">0</span>
+        <span class="pomodoro-stat-label">Today</span>
+      </div>
+      <div class="pomodoro-stat">
+        <span class="pomodoro-stat-value" id="statStreak">0</span>
+        <span class="pomodoro-stat-label">Day streak</span>
+      </div>
     </div>
   `;
 
@@ -176,6 +187,48 @@ function loadPomodoroState() {
 
   sendBackgroundMessage({ action: "pomodoro:getState" }, (response) => {
     handlePomodoroResponse(response);
+  });
+}
+
+// Compute and display session stats from storage.
+function loadPomodoroStats() {
+  const storageHelpers =
+    typeof FocusKitStorage !== "undefined"
+      ? FocusKitStorage
+      : require("../../storage.js");
+
+  storageHelpers.loadSessions().then((sessions) => {
+    const now = new Date();
+    const todayStart = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate()
+    ).getTime();
+
+    // Sessions completed today
+    const todayCount = sessions.filter(
+      (s) => s.completedAt >= todayStart
+    ).length;
+
+    // Current streak: count consecutive days (including today) that have at least one session
+    let streak = 0;
+    let checkDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    while (true) {
+      const dayStart = checkDate.getTime();
+      const dayEnd = dayStart + 24 * 60 * 60 * 1000;
+      const hasSession = sessions.some(
+        (s) => s.completedAt >= dayStart && s.completedAt < dayEnd
+      );
+
+      if (!hasSession) break;
+
+      streak++;
+      checkDate.setDate(checkDate.getDate() - 1);
+    }
+
+    document.getElementById("statToday").textContent = todayCount;
+    document.getElementById("statStreak").textContent = streak;
   });
 }
 

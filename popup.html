@@ -4,6 +4,11 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>FocusKit</title>
+    <!-- Changed font from Caveat to Sora -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="popup.css" />
     <link rel="stylesheet" href="focus-modes.css" />
   </head>
@@ -39,6 +44,7 @@
       </section>
       <section class="tab-panel" id="tab-settings">
         <p class="section-label">SETTINGS</p>
+        <!-- Removed duplicate HTML sections caused by merge conflict -->
         <div class="settings-list">
           <div class="setting-row">
             <span class="setting-label">Notifications</span>
@@ -67,12 +73,14 @@
     <!--
     Load order matters:
     1. pomodoroState  - shared timer state helpers (no Chrome dep)
-    2. pomodoro       - Pomodoro UI tool
-    3. focusModes     - CRUD helpers for user focus modes
-    4. tools          - TOOLS and FOCUS_MODES registries
-    5. popup          - wires everything together
+    2. storage.js     - storage
+    3. pomodoro       - Pomodoro UI tool
+    4. focusModes     - CRUD helpers for user focus modes
+    5. tools          - TOOLS and FOCUS_MODES registries
+    6. popup          - wires everything together
   -->
     <script src="tools/pomodor-timer/pomodoroState.js"></script>
+    <script src="storage.js"></script>
     <script src="tools/pomodor-timer/pomodoro.js"></script>
     <script src="tools/focus-modes/focusModes.js"></script>
     <script src="tools.js"></script>
