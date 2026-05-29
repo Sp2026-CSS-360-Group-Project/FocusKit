@@ -1,3 +1,4 @@
+/* global FocusKitStorage */
 // background.js - MV3 service worker for timers, notifications, tabs, and popup messages.
 
 // Load shared Pomodoro state helpers when running as a Chrome service worker.
