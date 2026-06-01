@@ -484,3 +484,303 @@ body {
 .theme-light .focus-card * {
   color: #111827;
 }
+
+/* ===========================================================================
+   Eisenhower Matrix tool
+   =========================================================================== */
+.eisenhower-panel[hidden] {
+  display: none;
+}
+
+.eisenhower-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.eisenhower-title {
+  color: var(--text);
+  font-family: "Sora", sans-serif;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.eisenhower-close {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 5px 10px;
+  font-family: "Sora", sans-serif;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+/* 2x2 grid with axis labels above */
+.eisenhower-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.eisenhower-axis {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  text-align: center;
+}
+
+.eisenhower-quadrant {
+  min-height: 90px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+}
+
+.eisenhower-quadrant.drop-active,
+.eisenhower-backlog.drop-active {
+  border-color: var(--accent);
+  background: var(--selected-bg);
+}
+
+.eisenhower-quadrant-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 6px;
+}
+
+/* Backlog */
+.eisenhower-backlog-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.eisenhower-backlog-label {
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.eisenhower-sort {
+  display: flex;
+  gap: 6px;
+}
+
+.eisenhower-select {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 12px;
+  padding: 3px 6px;
+  cursor: pointer;
+}
+
+.eisenhower-sort-dir {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  width: 28px;
+  cursor: pointer;
+}
+
+.eisenhower-backlog {
+  max-height: 180px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px;
+  margin-bottom: 8px;
+}
+
+.eisenhower-empty {
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+  padding: 12px 0;
+}
+
+/* Task cards */
+.eisenhower-task {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin-bottom: 6px;
+  cursor: grab;
+}
+
+.eisenhower-task.dragging {
+  opacity: 0.5;
+}
+
+.eisenhower-task-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.eisenhower-task-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.eisenhower-task-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.eisenhower-task-size {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--accent2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
+.eisenhower-task-due {
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.eisenhower-task-delete {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 2px;
+}
+
+.eisenhower-task-delete:hover {
+  color: var(--danger);
+}
+
+.eisenhower-task-showmore {
+  background: none;
+  border: none;
+  color: var(--accent2);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 4px 0 0;
+}
+
+.eisenhower-task-desc {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+.eisenhower-add-btn {
+  display: block;
+  width: 100%;
+  padding: 9px 0;
+  background: var(--accent);
+  color: var(--bg);
+  border: none;
+  border-radius: 8px;
+  font-family: "Sora", sans-serif;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+/* Task creation form overlay */
+.eisenhower-form-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 20px;
+  z-index: 100;
+}
+
+.eisenhower-form {
+  width: calc(100% - 32px);
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.eisenhower-form-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.eisenhower-form-input {
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  font-family: "Sora", sans-serif;
+  box-sizing: border-box;
+}
+
+.eisenhower-form-textarea {
+  resize: vertical;
+  min-height: 54px;
+}
+
+.eisenhower-form-error {
+  font-size: 12px;
+  color: var(--danger);
+  margin: 0;
+}
+
+.eisenhower-form-buttons {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.eisenhower-form-save,
+.eisenhower-form-cancel {
+  flex: 1;
+  padding: 8px 0;
+  border-radius: 8px;
+  border: none;
+  font-size: 13px;
+  font-family: "Sora", sans-serif;
+  cursor: pointer;
+}
+
+.eisenhower-form-save {
+  background: var(--accent);
+  color: var(--bg);
+  font-weight: 600;
+}
+
+.eisenhower-form-cancel {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
