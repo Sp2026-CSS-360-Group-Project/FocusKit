@@ -1,3 +1,4 @@
+/* global FocusKitEisenhowerState, requestAnimationFrame, cancelAnimationFrame */
 // eisenhower.js - FocusKit Eisenhower Matrix tool popup UI.
 // Mirrors the Pomodoro panel pattern: lazily build a panel, swap it in over the
 // tools list, persist all state to chrome.storage, and keep pure logic separate.
@@ -10,7 +11,6 @@ const eisenhowerStateHelpers =
 const {
   EISENHOWER_STORAGE_KEY,
   TASK_SIZES,
-  BACKLOG,
   createTask,
   isValidTask,
   addTask,
