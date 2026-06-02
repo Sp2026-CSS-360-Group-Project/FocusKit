@@ -173,7 +173,7 @@ function renderEisenhower() {
   const sorted = sortTasks(
     getBacklogTasks(eisenhowerTasks),
     sortField,
-    sortAscending,
+    sortAscending
   );
 
   if (sorted.length === 0) {
@@ -461,7 +461,7 @@ function openTaskForm() {
     dueInput,
     sizeSelect,
     error,
-    buttons,
+    buttons
   );
   overlay.appendChild(form);
   document.getElementById("tab-tools").appendChild(overlay);

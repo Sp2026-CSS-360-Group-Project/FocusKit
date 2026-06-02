@@ -30,7 +30,7 @@
   // Validate a task has at least a name before it can be added.
   function isValidTask(fields) {
     return Boolean(
-      fields && typeof fields.name === "string" && fields.name.trim(),
+      fields && typeof fields.name === "string" && fields.name.trim()
     );
   }
 
@@ -47,14 +47,14 @@
   // Move a task to a new location (a quadrant id or the backlog).
   function moveTask(tasks, taskId, location) {
     return tasks.map((task) =>
-      task.id === taskId ? { ...task, location } : task,
+      task.id === taskId ? { ...task, location } : task
     );
   }
 
   // Toggle a task's expanded (show more) flag.
   function toggleTaskExpanded(tasks, taskId) {
     return tasks.map((task) =>
-      task.id === taskId ? { ...task, expanded: !task.expanded } : task,
+      task.id === taskId ? { ...task, expanded: !task.expanded } : task
     );
   }
 
