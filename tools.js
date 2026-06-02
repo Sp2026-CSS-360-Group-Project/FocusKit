@@ -41,6 +41,10 @@ const TOOLS = [
     launch(button) {
       markToolLaunched(button, "Ready");
       chrome.storage.local.set({ activeTool: "eisenhower" });
+
+      if (window.FocusKitEisenhower) {
+        window.FocusKitEisenhower.open();
+      }
     },
   },
 ];
