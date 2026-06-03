@@ -345,6 +345,7 @@ test("FocusKit popup renders core features without console errors", async () => 
       page.getByText("Sound effects", { exact: true })
     ).toBeVisible();
     await expect(page.getByText("Dark mode", { exact: true })).toBeVisible();
+    await expect(page.getByText("Streak", { exact: true })).toBeVisible();
     await expect(page.getByText("Debug alerts", { exact: true })).toBeVisible();
     await expect(
       page.getByText(
@@ -357,6 +358,37 @@ test("FocusKit popup renders core features without console errors", async () => 
     await expect(
       page.getByText("Auto-start timer", { exact: true })
     ).toHaveCount(0);
+
+    const streakRow = page.locator(".setting-row--streak");
+    const streakInput = streakRow.locator("#settingStreak");
+    await page.waitForFunction(
+      () =>
+        new Promise((resolve) => {
+          chrome.storage.local.get(["extensionStreak"], (data) => {
+            resolve(
+              Boolean(data.extensionStreak && data.extensionStreak.count === 1)
+            );
+          });
+        })
+    );
+    await expect(streakInput).toHaveValue("1");
+    await streakInput.fill("5");
+    await streakRow.getByRole("button", { name: "Save" }).click();
+    await expect(page.locator("#settingStreakStatus")).toHaveText("Saved.");
+    await page.waitForFunction(
+      () =>
+        new Promise((resolve) => {
+          chrome.storage.local.get(["extensionStreak"], (data) => {
+            resolve(
+              Boolean(
+                data.extensionStreak &&
+                data.extensionStreak.count === 5 &&
+                typeof data.extensionStreak.lastUseDayKey === "string"
+              )
+            );
+          });
+        })
+    );
 
     await page
       .getByRole("button", { name: "Test notification and sound" })
@@ -439,6 +471,7 @@ test("FocusKit popup renders core features without console errors", async () => 
     await expect(page.locator("#settingNotifications")).not.toBeChecked();
     await expect(page.locator("#settingSound")).toBeChecked();
     await expect(page.locator("#settingDark")).not.toBeChecked();
+    await expect(page.locator("#settingStreak")).toHaveValue("5");
     await expect(body).toHaveClass(/theme-light/);
     await expect(popupSurface).toHaveClass(/theme-light/);
     expectLightTheme(await readComputedColors(popupSurface));

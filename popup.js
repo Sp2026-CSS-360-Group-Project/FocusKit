@@ -1,5 +1,17 @@
 // popup.js - handles tab navigation, registry rendering, and persisted settings.
 
+// Shared streak helpers keep date math out of popup DOM wiring.
+const streakHelpers =
+  typeof globalThis !== "undefined" && globalThis.FocusKitStreakState
+    ? globalThis.FocusKitStreakState
+    : require("./tools/streak/streakState.js");
+
+const {
+  EXTENSION_STREAK_STORAGE_KEY,
+  getEditableDailyStreakState,
+  getNextDailyStreakState,
+} = streakHelpers;
+
 // Storage keys that mirror the Settings tab checkbox ids.
 const SETTING_KEYS = ["notifications", "sound", "dark"];
 const DEFAULT_DARK_MODE = true;
@@ -14,6 +26,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setupTabs();
   renderTools();
   loadAndRenderFocusModes();
+  setupExtensionStreak();
   loadSavedState();
   window.requestAnimationFrame(loadSavedState);
   setupSettingsPersistence();
@@ -40,6 +53,7 @@ function setupTabs() {
 
       if (button.dataset.tab === "settings") {
         loadSavedState();
+        loadExtensionStreak();
       }
     });
   });
@@ -433,6 +447,85 @@ function setupSettingsPersistence() {
         chrome.storage.local.set({ [key]: input.checked });
       });
     });
+}
+
+// Record a popup open as today's extension use, then render the Settings count.
+function setupExtensionStreak() {
+  recordExtensionUse();
+  setupExtensionStreakEditor();
+}
+
+// Load the saved streak without changing it, useful when the Settings tab reopens.
+function loadExtensionStreak() {
+  chrome.storage.local.get([EXTENSION_STREAK_STORAGE_KEY], (data) => {
+    renderExtensionStreak(data[EXTENSION_STREAK_STORAGE_KEY]);
+  });
+}
+
+// Update stored streak state according to local calendar-day usage.
+function recordExtensionUse(now = Date.now()) {
+  chrome.storage.local.get([EXTENSION_STREAK_STORAGE_KEY], (data) => {
+    const nextState = getNextDailyStreakState(
+      data[EXTENSION_STREAK_STORAGE_KEY],
+      now
+    );
+
+    chrome.storage.local.set(
+      { [EXTENSION_STREAK_STORAGE_KEY]: nextState },
+      () => renderExtensionStreak(nextState)
+    );
+  });
+}
+
+// Wire the editable Settings input to validated streak-state persistence.
+function setupExtensionStreakEditor() {
+  const input = document.getElementById("settingStreak");
+  const saveButton = document.getElementById("settingStreakSave");
+
+  if (!input || !saveButton) {
+    return;
+  }
+
+  saveButton.addEventListener("click", saveEditableExtensionStreak);
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      saveEditableExtensionStreak();
+    }
+  });
+}
+
+// Save a user-entered streak count and anchor it to today's local day.
+function saveEditableExtensionStreak() {
+  const input = document.getElementById("settingStreak");
+  const status = document.getElementById("settingStreakStatus");
+  const nextState = getEditableDailyStreakState(input.value);
+
+  if (!nextState) {
+    status.textContent = "Use whole days.";
+    input.setAttribute("aria-invalid", "true");
+    return;
+  }
+
+  input.setAttribute("aria-invalid", "false");
+  chrome.storage.local.set(
+    { [EXTENSION_STREAK_STORAGE_KEY]: nextState },
+    () => {
+      renderExtensionStreak(nextState);
+      status.textContent = "Saved.";
+    }
+  );
+}
+
+// Reflect current extension-open streak state in the Settings control.
+function renderExtensionStreak(streakState) {
+  const input = document.getElementById("settingStreak");
+
+  if (!input || !streakState) {
+    return;
+  }
+
+  input.value = String(streakState.count);
 }
 
 // Temporary debug control for manually verifying notification and sound APIs.
