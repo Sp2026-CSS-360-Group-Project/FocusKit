@@ -3,10 +3,11 @@
   "version": "1.0.0",
   "description": "FocusKit Manifest V3 Chrome productivity extension",
   "scripts": {
+    "build:info": "node scripts/write-build-info.js",
     "pretest": "npx playwright install chromium",
     "test:unit": "jest --runInBand",
     "test": "npm run test:unit && npm run smoke",
-    "smoke": "playwright test tests/smoke.extension.spec.js",
+    "smoke": "npm run build:info && playwright test tests/smoke.extension.spec.js",
     "check": "npm run static && npm test",
     "lint": "eslint . --config static-analysis/eslint.config.mjs",
     "format": "prettier --write \"**/*.{js,json,css,html,md,yml,yaml}\" --ignore-path .gitignore --config static-analysis/.prettierrc",

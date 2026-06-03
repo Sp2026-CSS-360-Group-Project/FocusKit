@@ -309,6 +309,9 @@ test("FocusKit popup renders core features without console errors", async () => 
     await expect(page).toHaveURL(
       new RegExp(`^chrome-extension://${extensionId}/popup\\.html$`)
     );
+    await expect(page.locator("#buildWatermark")).toHaveText(
+      /^build: (dev|[a-f0-9]{7,})$/
+    );
     const body = page.locator("body");
     const popupSurface = page.locator(".app");
     const firstToolCard = page.locator(".tool-card").first();

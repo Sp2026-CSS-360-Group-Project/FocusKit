@@ -25,6 +25,7 @@ const state = {
 document.addEventListener("DOMContentLoaded", () => {
   setupTabs();
   renderTools();
+  renderBuildWatermark();
   loadAndRenderFocusModes();
   setupExtensionStreak();
   loadSavedState();
@@ -99,6 +100,24 @@ function renderTools() {
     card.append(toolInfo, launchButton);
     container.appendChild(card);
   });
+}
+
+// Show the generated commit marker so testers can confirm Chrome loaded this build.
+function renderBuildWatermark() {
+  const watermark = document.getElementById("buildWatermark");
+
+  if (!watermark) {
+    return;
+  }
+
+  const commit =
+    typeof globalThis !== "undefined" &&
+    globalThis.FocusKitBuildInfo &&
+    typeof globalThis.FocusKitBuildInfo.commit === "string"
+      ? globalThis.FocusKitBuildInfo.commit
+      : "dev";
+
+  watermark.textContent = `build: ${commit}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -617,5 +636,6 @@ if (typeof module !== "undefined") {
     capitalize,
     applyTheme,
     resolveDarkMode,
+    renderBuildWatermark,
   };
 }
