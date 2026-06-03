@@ -4,6 +4,8 @@
   // Keep the timer duration and storage key centralized across extension contexts.
   const POMODORO_DEFAULT_DURATION_SECONDS = 25 * 60;
   const POMODORO_MAX_DURATION_SECONDS = 180 * 60;
+  const POMODORO_SHORT_BREAK_SECONDS = 5 * 60;
+  const POMODORO_LONG_BREAK_SECONDS = 15 * 60;
   const POMODORO_DURATION_SECONDS = POMODORO_DEFAULT_DURATION_SECONDS;
   const POMODORO_STORAGE_KEY = "pomodoroState";
 
@@ -20,6 +22,19 @@
       remainingSeconds: safeDuration,
       durationSeconds: safeDuration,
       isRunning: false,
+      lastUpdatedAt: now,
+      completionFired: false,
+    };
+  }
+
+  // Build a fresh paused break state using the given duration in seconds.
+  function createBreakState(breakDurationSeconds = POMODORO_SHORT_BREAK_SECONDS, now = Date.now()) {
+    const safeDuration = normalizePomodoroDurationSeconds(breakDurationSeconds) || POMODORO_SHORT_BREAK_SECONDS;
+    return {
+      remainingSeconds: safeDuration,
+      durationSeconds: safeDuration,
+      isRunning: false,
+      isBreak: true,
       lastUpdatedAt: now,
       completionFired: false,
     };
@@ -142,6 +157,7 @@
         ),
         durationSeconds,
         isRunning: Boolean(savedState.isRunning),
+        isBreak: Boolean(savedState.isBreak),
         lastUpdatedAt:
           typeof savedState.lastUpdatedAt === "number"
             ? savedState.lastUpdatedAt
@@ -220,7 +236,10 @@
     POMODORO_DEFAULT_DURATION_SECONDS,
     POMODORO_DURATION_SECONDS,
     POMODORO_MAX_DURATION_SECONDS,
+    POMODORO_SHORT_BREAK_SECONDS,
+    POMODORO_LONG_BREAK_SECONDS,
     POMODORO_STORAGE_KEY,
+    createBreakState,
     createInitialPomodoroState,
     formatPomodoroInput,
     formatTime,
