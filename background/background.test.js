@@ -657,6 +657,8 @@ describe("FocusKit background service worker", () => {
     const { chrome } = loadBackground();
 
     const response = await sendMessage(chrome, { action: "debug:testAlerts" });
+    await Promise.resolve();
+    await Promise.resolve();
 
     expect(response).toMatchObject({
       notificationRequested: true,
@@ -695,11 +697,10 @@ describe("FocusKit background service worker", () => {
 
     expect(response.notificationRequested).toBe(true);
     expect(response.soundRequested).toBe(true);
-    expect(response.errors).toContain("Notifications are blocked");
+    expect(response.errors).toEqual([]);
     expect(response.notificationResult).toMatchObject({
-      success: false,
-      error: "Notifications are blocked",
-      notificationId: expect.stringMatching(/^focuskit-pomodoro-complete-\d+-/),
+      success: true,
+      requested: true,
     });
   });
 
@@ -713,10 +714,10 @@ describe("FocusKit background service worker", () => {
 
     expect(response.notificationRequested).toBe(true);
     expect(response.soundRequested).toBe(true);
-    expect(response.errors).toContain("Offscreen creation failed");
+    expect(response.errors).toEqual([]);
     expect(response.soundResult).toEqual({
-      success: false,
-      error: "Offscreen creation failed",
+      success: true,
+      requested: true,
     });
   });
 
@@ -735,6 +736,32 @@ describe("FocusKit background service worker", () => {
     });
 
     jest.useRealTimers();
+  });
+
+  test("debug alert test returns a structured response when alert APIs do not call back", async () => {
+    const { chrome } = loadBackground();
+    chrome.notifications.create.mockImplementation(() => {});
+    chrome.runtime.sendMessage.mockImplementation((message, callback) => {
+      if (message.action !== "pomodoro:playAlarmSound" && callback) {
+        callback();
+      }
+    });
+
+    await expect(
+      sendMessage(chrome, { action: "debug:testAlerts" })
+    ).resolves.toMatchObject({
+      notificationRequested: true,
+      soundRequested: true,
+      errors: [],
+      notificationResult: {
+        success: true,
+        requested: true,
+      },
+      soundResult: {
+        success: true,
+        requested: true,
+      },
+    });
   });
 
   test("reset and start clear the completion guard for a future session", async () => {

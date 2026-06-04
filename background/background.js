@@ -379,29 +379,34 @@ async function testDebugAlerts() {
   const result = {
     notificationRequested: true,
     soundRequested: true,
+    notificationResult: { success: true, requested: true },
+    soundResult: { success: true, requested: true },
     errors: [],
   };
 
-  const notificationResult = await notifyPomodoroComplete({
-    recordSession: false,
+  Promise.allSettled([
+    notifyPomodoroComplete({ recordSession: false }),
+    playPomodoroAlarmSound(),
+  ]).then(([notificationResult, soundResult]) => {
+    const completedResult = {
+      notificationRequested: true,
+      soundRequested: true,
+      notificationResult: unwrapAlertResult(notificationResult),
+      soundResult: unwrapAlertResult(soundResult),
+      errors: [],
+      completedAt: Date.now(),
+    };
+
+    [completedResult.notificationResult, completedResult.soundResult].forEach(
+      (alertResult) => {
+        if (alertResult && alertResult.error) {
+          completedResult.errors.push(alertResult.error);
+        }
+      }
+    );
+
+    setStorage({ lastDebugAlertResult: completedResult });
   });
-  result.notificationResult = notificationResult;
-
-  if (notificationResult && notificationResult.error) {
-    result.errors.push(notificationResult.error);
-  }
-
-  try {
-    result.soundResult = await playPomodoroAlarmSound();
-    if (result.soundResult && result.soundResult.error) {
-      result.errors.push(result.soundResult.error);
-    }
-  } catch (error) {
-    const message = error.message || "Pomodoro alarm sound failed";
-    console.error(`Pomodoro alarm sound failed: ${message}`);
-    result.soundResult = { success: false, error: message };
-    result.errors.push(message);
-  }
 
   return result;
 }

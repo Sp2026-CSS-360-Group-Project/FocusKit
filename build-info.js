@@ -1,2 +1,2 @@
 // build-info.js - generated popup build metadata for local extension verification.
-window.FocusKitBuildInfo = { commit: "b270e82" };
+window.FocusKitBuildInfo = { commit: "f4a1ecf" };
