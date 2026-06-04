@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FocusKit</title>
+    <!-- Changed font from Caveat to Sora -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="popup.css" />
+    <link rel="stylesheet" href="focus-modes.css" />
+  </head>
+  <body class="theme-dark">
+    <div class="app theme-dark">
+      <header class="header">
+        <div class="logo">
+          <span class="logo-icon">FK</span>
+          <span class="logo-text">FocusKit</span>
+        </div>
+        <div class="header-status">
+          <span
+            class="extension-streak"
+            id="extensionStreak"
+            aria-label="Current extension streak"
+          >
+            Streak: 0 days
+          </span>
+          <div
+            class="status-dot"
+            id="statusDot"
+            aria-label="Focus mode inactive"
+          ></div>
+        </div>
+      </header>
+      <nav class="tab-nav" aria-label="FocusKit sections">
+        <button class="tab-btn active" type="button" data-tab="tools">
+          Tools
+        </button>
+        <button class="tab-btn" type="button" data-tab="focus">Focus</button>
+        <button class="tab-btn" type="button" data-tab="settings">
+          Settings
+        </button>
+      </nav>
+      <section class="tab-panel active" id="tab-tools">
+        <p class="section-label">TOOLS HUB</p>
+        <div class="tools-list" id="toolsList"></div>
+      </section>
+      <section class="tab-panel" id="tab-focus" style="position: relative">
+        <p class="section-label">FOCUS MODE</p>
+        <div class="focus-modes" id="focusModes"></div>
+      </section>
+      <section class="tab-panel" id="tab-settings">
+        <p class="section-label">SETTINGS</p>
+        <!-- Removed duplicate HTML sections caused by merge conflict -->
+        <div class="settings-list">
+          <div class="setting-row">
+            <span class="setting-label">Notifications</span>
+            <label class="toggle">
+              <input type="checkbox" id="settingNotifications" checked />
+              <span class="slider"></span>
+            </label>
+          </div>
+          <div class="setting-row">
+            <span class="setting-label">Sound effects</span>
+            <label class="toggle">
+              <input type="checkbox" id="settingSound" />
+              <span class="slider"></span>
+            </label>
+          </div>
+          <div class="setting-row">
+            <span class="setting-label">Dark mode</span>
+            <label class="toggle">
+              <input type="checkbox" id="settingDark" checked />
+              <span class="slider"></span>
+            </label>
+          </div>
+          <div class="setting-row setting-row--streak">
+            <label class="setting-label" for="settingStreak">Streak</label>
+            <div class="streak-editor">
+              <p class="streak-current" id="settingStreakCurrent">
+                Current streak: 0 days
+              </p>
+              <div class="streak-control">
+                <input
+                  class="streak-input"
+                  type="number"
+                  id="settingStreak"
+                  min="0"
+                  step="1"
+                  inputmode="numeric"
+                  aria-label="Streak count"
+                />
+                <span class="streak-suffix">days</span>
+                <button
+                  class="streak-save"
+                  type="button"
+                  id="settingStreakSave"
+                >
+                  Save
+                </button>
+              </div>
+              <p
+                class="streak-status"
+                id="settingStreakStatus"
+                role="status"
+              ></p>
+            </div>
+          </div>
+        </div>
+        <!-- Temporary debug section for Pomodoro alert API verification. -->
+        <div class="debug-alerts" aria-label="Debug alerts">
+          <div>
+            <h2 class="debug-alerts-title">Debug alerts</h2>
+            <p class="debug-alerts-note">
+              Temporary debug control for verifying Pomodoro alert APIs.
+            </p>
+          </div>
+          <button class="debug-alerts-button" type="button" id="debugAlertsBtn">
+            Test notification and sound
+          </button>
+          <p
+            class="debug-alerts-result"
+            id="debugAlertsResult"
+            role="status"
+          ></p>
+        </div>
+      </section>
+      <div
+        class="build-watermark"
+        id="buildWatermark"
+        aria-label="Build commit"
+      ></div>
+    </div>
+    <!--
+    Load order matters:
+    1. pomodoroState  - shared timer state helpers (no Chrome dep)
+    2. storage.js     - storage
+    3. streakState    - extension-open streak helpers
+    4. pomodoro       - Pomodoro UI tool
+    5. focusModes     - CRUD helpers for user focus modes
+    6. tools          - TOOLS and FOCUS_MODES registries
+    7. popup          - wires everything together
+  -->
+    <script src="tools/pomodoro-timer/pomodoroState.js"></script>
+    <script src="storage.js"></script>
+    <script src="tools/streak/streakState.js"></script>
+    <script src="tools/pomodoro-timer/pomodoro.js"></script>
+    <script src="tools/focus-modes/focusModes.js"></script>
+    <script src="tools/eisenhower/eisenhowerState.js"></script>
+    <script src="tools/eisenhower/eisenhower.js"></script>
+    <script src="tools.js"></script>
+    <script src="build-info.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>
