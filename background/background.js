@@ -40,6 +40,7 @@ const POMODORO_ALARM_NAME = "focuskit:pomodoro";
 const POMODORO_ALARM_SOUND_PATH = "assets/sounds/pomodoro-alarm.wav";
 const POMODORO_COMPLETE_NOTIFICATION_ID = "focuskit-pomodoro-complete";
 const POMODORO_ICON_PATH = "icons/icon48.png";
+const POMODORO_CLEAR_NOTIFICATION_TIMEOUT_MS = 500;
 const POMODORO_NOTIFICATION_TIMEOUT_MS = 2000;
 const POMODORO_SOUND_TIMEOUT_MS = 2000;
 // Separate id prevents the break notification overwriting the complete notification.
@@ -325,26 +326,52 @@ function clearPomodoroAlarm() {
 }
 
 // Dispatch all user-facing completion effects, honoring Settings toggles.
-async function handlePomodoroComplete(source = "background") {
+async function handlePomodoroComplete(
+  source = "background",
+  alertHelpers = {}
+) {
   const settings = await getStorage(["notifications", "sound"]);
+  const notify = alertHelpers.notifyPomodoroComplete || notifyPomodoroComplete;
+  const playSound =
+    alertHelpers.playPomodoroAlarmSound || playPomodoroAlarmSound;
   const effects = {
     source,
     notificationRequested: false,
     notificationResult: null,
     soundRequested: false,
+    soundResult: null,
   };
 
-  if (settings.notifications !== false) {
-    effects.notificationRequested = true;
-    effects.notificationResult = await notifyPomodoroComplete();
-  }
+  effects.notificationRequested = settings.notifications !== false;
+  effects.soundRequested = settings.sound === true;
 
-  if (settings.sound === true) {
-    effects.soundRequested = true;
-    effects.soundResult = await playPomodoroAlarmSound();
-  }
+  const notificationPromise = effects.notificationRequested
+    ? notify()
+    : Promise.resolve({ skipped: true, reason: "notifications disabled" });
+  const soundPromise = effects.soundRequested
+    ? playSound()
+    : Promise.resolve({ skipped: true, reason: "sound disabled" });
+
+  const [notificationResult, soundResult] = await Promise.allSettled([
+    notificationPromise,
+    soundPromise,
+  ]);
+
+  effects.notificationResult = unwrapAlertResult(notificationResult);
+  effects.soundResult = unwrapAlertResult(soundResult);
 
   return effects;
+}
+
+function unwrapAlertResult(result) {
+  if (result.status === "fulfilled") {
+    return result.value;
+  }
+
+  return {
+    success: false,
+    error: result.reason ? result.reason.message || String(result.reason) : "",
+  };
 }
 
 // Temporary manual debug action for testing notification and audio APIs directly.
@@ -355,7 +382,9 @@ async function testDebugAlerts() {
     errors: [],
   };
 
-  const notificationResult = await notifyPomodoroComplete();
+  const notificationResult = await notifyPomodoroComplete({
+    recordSession: false,
+  });
   result.notificationResult = notificationResult;
 
   if (notificationResult && notificationResult.error) {
@@ -378,12 +407,14 @@ async function testDebugAlerts() {
 }
 
 // Notify the user when a focus sprint ends. Skipped if notifications are disabled.
-async function notifyPomodoroComplete() {
-  // Record the session before anything else
-  await saveSession({
-    completedAt: Date.now(),
-    duration: 25,
-  });
+async function notifyPomodoroComplete(options = {}) {
+  if (options.recordSession !== false) {
+    await saveSession({
+      completedAt: Date.now(),
+      duration: 25,
+    });
+  }
+
   // Clear any stale break notification before showing the complete one.
   await clearNotification(POMODORO_BREAK_NOTIFICATION_ID);
   const notificationId = createNotificationId(
@@ -556,15 +587,21 @@ async function notifyBreakStart() {
 
 // Safely clear a notification without throwing if it does not exist.
 function clearNotification(notificationId) {
-  return new Promise((resolve) => {
-    // chrome.notifications.clear may be absent in Jest stubs, so we check
-    // before calling to keep tests passing without modifying the test file.
-    if (chrome.notifications.clear) {
-      chrome.notifications.clear(notificationId, () => resolve());
-    } else {
-      resolve();
-    }
-  });
+  return withTimeout(
+    new Promise((resolve) => {
+      // chrome.notifications.clear may be absent in Jest stubs, so we check
+      // before calling to keep tests passing without modifying the test file.
+      if (chrome.notifications.clear) {
+        chrome.notifications.clear(notificationId, () =>
+          resolve({ success: true })
+        );
+      } else {
+        resolve({ success: true });
+      }
+    }),
+    POMODORO_CLEAR_NOTIFICATION_TIMEOUT_MS,
+    "Pomodoro notification clear timed out"
+  );
 }
 
 // Broadcast state changes to any open popup without failing when no listener exists.

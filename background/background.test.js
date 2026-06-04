@@ -517,6 +517,99 @@ describe("FocusKit background service worker", () => {
     Date.now.mockRestore();
   });
 
+  test("completion starts notification and sound without waiting for either one", async () => {
+    const { background } = loadBackground({
+      notifications: true,
+      sound: true,
+    });
+    const calls = [];
+    let resolveNotification;
+    let resolveSound;
+    const notifyPomodoroComplete = jest.fn(
+      () =>
+        new Promise((resolve) => {
+          calls.push("notification");
+          resolveNotification = resolve;
+        })
+    );
+    const playPomodoroAlarmSound = jest.fn(
+      () =>
+        new Promise((resolve) => {
+          calls.push("sound");
+          resolveSound = resolve;
+        })
+    );
+
+    const resultPromise = background.handlePomodoroComplete("test", {
+      notifyPomodoroComplete,
+      playPomodoroAlarmSound,
+    });
+
+    await Promise.resolve();
+    expect(calls).toEqual(["notification", "sound"]);
+    expect(notifyPomodoroComplete).toHaveBeenCalledTimes(1);
+    expect(playPomodoroAlarmSound).toHaveBeenCalledTimes(1);
+
+    resolveNotification({ success: true, notificationId: "notification-1" });
+    resolveSound({ success: true });
+
+    await expect(resultPromise).resolves.toMatchObject({
+      source: "test",
+      notificationRequested: true,
+      notificationResult: { success: true, notificationId: "notification-1" },
+      soundRequested: true,
+      soundResult: { success: true },
+    });
+  });
+
+  test("completion still requests notification when sound hangs", async () => {
+    const { background } = loadBackground({
+      notifications: true,
+      sound: true,
+    });
+    const notifyPomodoroComplete = jest.fn(() =>
+      Promise.resolve({ success: true, notificationId: "notification-1" })
+    );
+    const playPomodoroAlarmSound = jest.fn(() => new Promise(() => {}));
+
+    background.handlePomodoroComplete("test", {
+      notifyPomodoroComplete,
+      playPomodoroAlarmSound,
+    });
+
+    await Promise.resolve();
+    expect(notifyPomodoroComplete).toHaveBeenCalledTimes(1);
+    expect(playPomodoroAlarmSound).toHaveBeenCalledTimes(1);
+  });
+
+  test("completion still requests sound when notification fails", async () => {
+    const { background } = loadBackground({
+      notifications: true,
+      sound: true,
+    });
+    const notifyPomodoroComplete = jest.fn(() =>
+      Promise.reject(new Error("Notifications are blocked"))
+    );
+    const playPomodoroAlarmSound = jest.fn(() =>
+      Promise.resolve({ success: true })
+    );
+
+    const result = await background.handlePomodoroComplete("test", {
+      notifyPomodoroComplete,
+      playPomodoroAlarmSound,
+    });
+
+    expect(notifyPomodoroComplete).toHaveBeenCalledTimes(1);
+    expect(playPomodoroAlarmSound).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({
+      notificationResult: {
+        success: false,
+        error: "Notifications are blocked",
+      },
+      soundResult: { success: true },
+    });
+  });
+
   test("records notification creation errors instead of swallowing them", async () => {
     const { background, chrome } = loadBackground({
       notifications: true,
@@ -587,6 +680,7 @@ describe("FocusKit background service worker", () => {
       },
       expect.any(Function)
     );
+    expect(chrome.__storage.sessions).toBeUndefined();
   });
 
   test("debug alert test reports notification runtime errors", async () => {
@@ -624,6 +718,23 @@ describe("FocusKit background service worker", () => {
       success: false,
       error: "Offscreen creation failed",
     });
+  });
+
+  test("debug alert test does not hang when notification clear never calls back", async () => {
+    jest.useFakeTimers();
+    const { chrome } = loadBackground();
+    chrome.notifications.clear.mockImplementation(() => {});
+
+    const responsePromise = sendMessage(chrome, { action: "debug:testAlerts" });
+    await jest.advanceTimersByTimeAsync(3000);
+
+    await expect(responsePromise).resolves.toMatchObject({
+      notificationRequested: true,
+      soundRequested: true,
+      errors: [],
+    });
+
+    jest.useRealTimers();
   });
 
   test("reset and start clear the completion guard for a future session", async () => {

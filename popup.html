@@ -19,11 +19,20 @@
           <span class="logo-icon">FK</span>
           <span class="logo-text">FocusKit</span>
         </div>
-        <div
-          class="status-dot"
-          id="statusDot"
-          aria-label="Focus mode inactive"
-        ></div>
+        <div class="header-status">
+          <span
+            class="extension-streak"
+            id="extensionStreak"
+            aria-label="Current extension streak"
+          >
+            Streak: 0 days
+          </span>
+          <div
+            class="status-dot"
+            id="statusDot"
+            aria-label="Focus mode inactive"
+          ></div>
+        </div>
       </header>
       <nav class="tab-nav" aria-label="FocusKit sections">
         <button class="tab-btn active" type="button" data-tab="tools">
@@ -70,6 +79,9 @@
           <div class="setting-row setting-row--streak">
             <label class="setting-label" for="settingStreak">Streak</label>
             <div class="streak-editor">
+              <p class="streak-current" id="settingStreakCurrent">
+                Current streak: 0 days
+              </p>
               <div class="streak-control">
                 <input
                   class="streak-input"

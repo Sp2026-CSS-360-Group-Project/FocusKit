@@ -15,6 +15,7 @@ const {
 // Storage keys that mirror the Settings tab checkbox ids.
 const SETTING_KEYS = ["notifications", "sound", "dark"];
 const DEFAULT_DARK_MODE = true;
+const DEBUG_ALERT_RESPONSE_TIMEOUT_MS = 6000;
 
 // Track the selected DOM card so only one focus mode appears active at a time.
 const state = {
@@ -521,7 +522,7 @@ function saveEditableExtensionStreak() {
   const nextState = getEditableDailyStreakState(input.value);
 
   if (!nextState) {
-    status.textContent = "Use whole days.";
+    status.textContent = "Use a whole number of days.";
     input.setAttribute("aria-invalid", "true");
     return;
   }
@@ -536,15 +537,31 @@ function saveEditableExtensionStreak() {
   );
 }
 
-// Reflect current extension-open streak state in the Settings control.
+// Reflect current extension-open streak state everywhere it is visible.
 function renderExtensionStreak(streakState) {
   const input = document.getElementById("settingStreak");
+  const visibleCount = document.getElementById("extensionStreak");
+  const currentCount = document.getElementById("settingStreakCurrent");
 
-  if (!input || !streakState) {
+  if (!streakState || !Number.isSafeInteger(streakState.count)) {
     return;
   }
 
-  input.value = String(streakState.count);
+  const dayLabel = streakState.count === 1 ? "day" : "days";
+  const visibleText = `Streak: ${streakState.count} ${dayLabel}`;
+  const settingsText = `Current streak: ${streakState.count} ${dayLabel}`;
+
+  if (visibleCount) {
+    visibleCount.textContent = visibleText;
+  }
+
+  if (currentCount) {
+    currentCount.textContent = settingsText;
+  }
+
+  if (input) {
+    input.value = String(streakState.count);
+  }
 }
 
 // Temporary debug control for manually verifying notification and sound APIs.
@@ -558,8 +575,24 @@ function setupDebugAlerts() {
 
   button.addEventListener("click", () => {
     result.textContent = "Requesting test alert...";
+    let isComplete = false;
+    const timeoutId = setTimeout(() => {
+      if (isComplete) {
+        return;
+      }
+
+      isComplete = true;
+      result.textContent =
+        "Test alert failed: No response from background alert check.";
+    }, DEBUG_ALERT_RESPONSE_TIMEOUT_MS);
 
     chrome.runtime.sendMessage({ action: "debug:testAlerts" }, (response) => {
+      if (isComplete) {
+        return;
+      }
+
+      isComplete = true;
+      clearTimeout(timeoutId);
       console.log("Debug alert result", response);
 
       if (!response || !Array.isArray(response.errors)) {
