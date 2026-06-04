@@ -426,6 +426,7 @@ function loadPomodoroStats() {
       ? FocusKitStorage
       : require("../../storage.js");
 
+  // Load today's session count from session history.
   storageHelpers.loadSessions().then((sessions) => {
     const now = new Date();
     const todayStart = new Date(
@@ -434,31 +435,28 @@ function loadPomodoroStats() {
       now.getDate()
     ).getTime();
 
-    // Sessions completed today
     const todayCount = sessions.filter(
       (s) => s.completedAt >= todayStart
     ).length;
 
-    // Current streak: count consecutive days (including today) that have at least one session
-    let streak = 0;
-    let checkDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-    while (true) {
-      const dayStart = checkDate.getTime();
-      const dayEnd = dayStart + 24 * 60 * 60 * 1000;
-      const hasSession = sessions.some(
-        (s) => s.completedAt >= dayStart && s.completedAt < dayEnd
-      );
-
-      if (!hasSession) break;
-
-      streak++;
-      checkDate.setDate(checkDate.getDate() - 1);
-    }
-
     document.getElementById("statToday").textContent = todayCount;
-    document.getElementById("statStreak").textContent = streak;
   });
+
+  loadExtensionStreakStat();
+}
+
+function loadExtensionStreakStat() {
+  chrome.storage.local.get([POMODORO_EXTENSION_STREAK_STORAGE_KEY], (data) => {
+    renderExtensionStreakStat(data[POMODORO_EXTENSION_STREAK_STORAGE_KEY]);
+  });
+}
+
+function renderExtensionStreakStat(streakState) {
+  const stat = document.getElementById("statStreak");
+  if (!stat || !streakState || !Number.isSafeInteger(streakState.count)) {
+    return;
+  }
+  stat.textContent = String(streakState.count);
 }
 
 // Apply successful background timer responses to the popup state and display.
