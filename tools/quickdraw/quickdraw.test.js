@@ -61,6 +61,17 @@ function clickById(id) {
   document.getElementById(id).click();
 }
 
+describe("QuickDraw HTML script ordering", () => {
+  test("loads quickdrawState.js before quickdraw.js so the global is ready", () => {
+    const stateScriptIndex = rawHtml.indexOf('<script src="quickdrawState.js"');
+    const mainScriptIndex = rawHtml.indexOf('<script src="quickdraw.js"');
+
+    expect(stateScriptIndex).toBeGreaterThan(-1);
+    expect(mainScriptIndex).toBeGreaterThan(-1);
+    expect(stateScriptIndex).toBeLessThan(mainScriptIndex);
+  });
+});
+
 describe("QuickDraw reader page", () => {
   beforeEach(() => {
     jest.useFakeTimers();

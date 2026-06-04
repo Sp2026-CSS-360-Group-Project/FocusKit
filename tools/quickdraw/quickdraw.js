@@ -3,10 +3,24 @@
 // Pure state helpers live in quickdrawState.js so this file stays focused on
 // the page lifecycle (settings, timer, screen transitions).
 
-const quickdrawStateHelpers =
-  typeof FocusKitQuickdrawState !== "undefined"
-    ? FocusKitQuickdrawState
-    : require("./quickdrawState.js");
+// Prefer the global attached by quickdrawState.js in the browser; fall back to
+// require() in Node/Jest. We guard the require call so the script does not crash
+// in the browser if the state script tag is ever missing.
+function loadQuickdrawStateHelpers() {
+  if (typeof FocusKitQuickdrawState !== "undefined") {
+    return FocusKitQuickdrawState;
+  }
+
+  if (typeof require === "function") {
+    return require("./quickdrawState.js");
+  }
+
+  throw new Error(
+    "QuickDraw state helpers are missing. Make sure quickdrawState.js loads before quickdraw.js."
+  );
+}
+
+const quickdrawStateHelpers = loadQuickdrawStateHelpers();
 
 const {
   DEFAULT_QUICKDRAW_SETTINGS,
