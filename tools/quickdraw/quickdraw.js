@@ -26,7 +26,7 @@ const {
   DEFAULT_QUICKDRAW_SETTINGS,
   QUICKDRAW_SETTINGS_STORAGE_KEY,
   createQuickdrawSession,
-  getIntervalMsForSettings,
+  getDelayMsForWord,
   normalizeHexColor,
   normalizeQuickdrawSettings,
   parseFontSizeInput,
@@ -41,7 +41,7 @@ const readerSession = {
   words: [],
   currentIndex: 0,
   isRunning: false,
-  intervalId: null,
+  timeoutId: null,
 };
 
 let currentSettings = { ...DEFAULT_QUICKDRAW_SETTINGS };
@@ -86,12 +86,13 @@ function loadSettings(callback) {
   });
 }
 
-// Push the current settings into the four DOM inputs.
+// Push the current settings into every DOM input.
 function writeSettingsToInputs(elements, settings) {
   elements.wpsInput.value = String(settings.wordsPerSecond);
   elements.fontSizeInput.value = String(settings.fontSize);
   elements.fontColorInput.value = settings.fontColor;
   elements.bgColorInput.value = settings.backgroundColor;
+  elements.pauseClauseInput.checked = Boolean(settings.pauseOnClauseEnd);
 }
 
 // Read current settings from the inputs, clamping/normalizing through the helpers
@@ -112,6 +113,7 @@ function readSettingsFromInputs(elements) {
       elements.bgColorInput.value,
       currentSettings.backgroundColor
     ),
+    pauseOnClauseEnd: Boolean(elements.pauseClauseInput.checked),
   });
 }
 
@@ -144,6 +146,7 @@ function setupQuickdraw() {
     fontSizeInput: document.getElementById("fontSizeInput"),
     fontColorInput: document.getElementById("fontColorInput"),
     bgColorInput: document.getElementById("bgColorInput"),
+    pauseClauseInput: document.getElementById("pauseClauseInput"),
   };
 
   if (!elements.goBtn) {
@@ -157,40 +160,60 @@ function setupQuickdraw() {
     screen.classList.remove("hidden");
   }
 
-  function stopInterval() {
-    if (readerSession.intervalId !== null) {
-      clearInterval(readerSession.intervalId);
-      readerSession.intervalId = null;
+  function stopScheduler() {
+    if (readerSession.timeoutId !== null) {
+      clearTimeout(readerSession.timeoutId);
+      readerSession.timeoutId = null;
     }
   }
 
   function finishReading() {
-    stopInterval();
+    stopScheduler();
     readerSession.isRunning = false;
     showScreen(elements.doneScreen);
   }
 
-  // Advance one step: show the current word, then move the cursor forward. If the
-  // cursor passes the last word the reader finishes and the done screen appears.
-  function advanceOnce() {
+  // Display the word at the current cursor and move the cursor forward by one.
+  // Returns the displayed word (or null if we ran past the end of the session).
+  function showCurrentAndAdvance() {
     if (readerSession.currentIndex >= readerSession.words.length) {
       finishReading();
-      return;
+      return null;
     }
 
-    elements.currentWord.textContent =
-      readerSession.words[readerSession.currentIndex];
+    const word = readerSession.words[readerSession.currentIndex];
+
+    elements.currentWord.textContent = word;
     readerSession.currentIndex += 1;
+    return word;
   }
 
-  function startInterval() {
-    stopInterval();
+  // Queue the next tick. The dwell time is decided by getDelayMsForWord using
+  // the word currently on screen, so clause / sentence endings linger when the
+  // pauseOnClauseEnd setting is on.
+  function scheduleNextTick() {
+    stopScheduler();
 
-    const intervalMs = getIntervalMsForSettings(currentSettings);
+    const lastShownIndex = readerSession.currentIndex - 1;
+    const lastShownWord =
+      lastShownIndex >= 0 ? readerSession.words[lastShownIndex] : "";
+    const delayMs = getDelayMsForWord(lastShownWord, currentSettings);
 
-    readerSession.intervalId = setInterval(advanceOnce, intervalMs);
+    readerSession.timeoutId = setTimeout(() => {
+      readerSession.timeoutId = null;
+      showCurrentAndAdvance();
+
+      if (readerSession.isRunning) {
+        scheduleNextTick();
+      }
+    }, delayMs);
+  }
+
+  function startScheduler() {
+    stopScheduler();
     readerSession.isRunning = true;
     elements.pauseBtn.textContent = PAUSE_LABEL;
+    scheduleNextTick();
   }
 
   function handleGo() {
@@ -205,8 +228,8 @@ function setupQuickdraw() {
     readerSession.currentIndex = 0;
     applyVisualSettingsToPanel(elements.wordBox, currentSettings);
     showScreen(elements.readerScreen);
-    advanceOnce();
-    startInterval();
+    showCurrentAndAdvance();
+    startScheduler();
   }
 
   function handlePauseToggle() {
@@ -215,13 +238,13 @@ function setupQuickdraw() {
     }
 
     if (readerSession.isRunning) {
-      stopInterval();
+      stopScheduler();
       readerSession.isRunning = false;
       elements.pauseBtn.textContent = RESUME_LABEL;
       return;
     }
 
-    startInterval();
+    startScheduler();
   }
 
   function handleRestart() {
@@ -229,15 +252,15 @@ function setupQuickdraw() {
       return;
     }
 
-    stopInterval();
+    stopScheduler();
     readerSession.currentIndex = 0;
     applyVisualSettingsToPanel(elements.wordBox, currentSettings);
-    advanceOnce();
-    startInterval();
+    showCurrentAndAdvance();
+    startScheduler();
   }
 
   function handleBackToInput() {
-    stopInterval();
+    stopScheduler();
     readerSession.isRunning = false;
     showScreen(elements.inputScreen);
   }
@@ -249,7 +272,7 @@ function setupQuickdraw() {
     applyVisualSettingsToPanel(elements.wordBox, currentSettings);
 
     if (readerSession.isRunning) {
-      startInterval();
+      startScheduler();
     }
   }
 
@@ -264,6 +287,7 @@ function setupQuickdraw() {
     elements.fontSizeInput,
     elements.fontColorInput,
     elements.bgColorInput,
+    elements.pauseClauseInput,
   ].forEach((input) => {
     input.addEventListener("change", handleSettingsChange);
   });

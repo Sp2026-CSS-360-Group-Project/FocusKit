@@ -2,6 +2,7 @@
 
 const {
   DEFAULT_QUICKDRAW_SETTINGS,
+  QUICKDRAW_CLAUSE_PAUSE_MULTIPLIERS,
   QUICKDRAW_MAX_FONT_SIZE,
   QUICKDRAW_MAX_WPS,
   QUICKDRAW_MIN_FONT_SIZE,
@@ -10,6 +11,8 @@ const {
   QUICKDRAW_SESSION_STORAGE_KEY,
   clampInteger,
   createQuickdrawSession,
+  getClausePauseMultiplier,
+  getDelayMsForWord,
   getIntervalMsForSettings,
   normalizeHexColor,
   normalizeQuickdrawSettings,
@@ -91,6 +94,16 @@ describe("normalizeQuickdrawSettings", () => {
     expect(settings.backgroundColor).toBe(
       DEFAULT_QUICKDRAW_SETTINGS.backgroundColor
     );
+  });
+
+  test("pauseOnClauseEnd defaults to true and respects explicit booleans", () => {
+    expect(normalizeQuickdrawSettings({}).pauseOnClauseEnd).toBe(true);
+    expect(
+      normalizeQuickdrawSettings({ pauseOnClauseEnd: false }).pauseOnClauseEnd
+    ).toBe(false);
+    expect(
+      normalizeQuickdrawSettings({ pauseOnClauseEnd: "yes" }).pauseOnClauseEnd
+    ).toBe(true);
   });
 });
 
@@ -225,5 +238,89 @@ describe("storage keys", () => {
   test("exposes the expected chrome.storage keys", () => {
     expect(QUICKDRAW_SETTINGS_STORAGE_KEY).toBe("quickdrawSettings");
     expect(QUICKDRAW_SESSION_STORAGE_KEY).toBe("quickdrawSession");
+  });
+});
+
+describe("getClausePauseMultiplier", () => {
+  test("returns 1 for plain words and non-strings", () => {
+    expect(getClausePauseMultiplier("hello")).toBe(1);
+    expect(getClausePauseMultiplier("")).toBe(1);
+    expect(getClausePauseMultiplier(null)).toBe(1);
+  });
+
+  test("returns the sentence multiplier for sentence-ending punctuation", () => {
+    expect(getClausePauseMultiplier("done.")).toBe(
+      QUICKDRAW_CLAUSE_PAUSE_MULTIPLIERS.sentence
+    );
+    expect(getClausePauseMultiplier("really?")).toBe(
+      QUICKDRAW_CLAUSE_PAUSE_MULTIPLIERS.sentence
+    );
+    expect(getClausePauseMultiplier("wow!")).toBe(
+      QUICKDRAW_CLAUSE_PAUSE_MULTIPLIERS.sentence
+    );
+  });
+
+  test("looks through wrapping quotes and brackets", () => {
+    expect(getClausePauseMultiplier('done."')).toBe(
+      QUICKDRAW_CLAUSE_PAUSE_MULTIPLIERS.sentence
+    );
+    expect(getClausePauseMultiplier("done.)")).toBe(
+      QUICKDRAW_CLAUSE_PAUSE_MULTIPLIERS.sentence
+    );
+  });
+
+  test("returns the clause multiplier for commas, semicolons, and colons", () => {
+    expect(getClausePauseMultiplier("hello,")).toBe(
+      QUICKDRAW_CLAUSE_PAUSE_MULTIPLIERS.clause
+    );
+    expect(getClausePauseMultiplier("first;")).toBe(
+      QUICKDRAW_CLAUSE_PAUSE_MULTIPLIERS.clause
+    );
+    expect(getClausePauseMultiplier("note:")).toBe(
+      QUICKDRAW_CLAUSE_PAUSE_MULTIPLIERS.clause
+    );
+  });
+
+  test("returns the em-dash multiplier for unicode and ASCII em dashes", () => {
+    expect(getClausePauseMultiplier("wait\u2014")).toBe(
+      QUICKDRAW_CLAUSE_PAUSE_MULTIPLIERS.emDash
+    );
+    expect(getClausePauseMultiplier("wait--")).toBe(
+      QUICKDRAW_CLAUSE_PAUSE_MULTIPLIERS.emDash
+    );
+  });
+});
+
+describe("getDelayMsForWord", () => {
+  test("returns the base interval when pauseOnClauseEnd is off", () => {
+    const settings = {
+      ...DEFAULT_QUICKDRAW_SETTINGS,
+      wordsPerSecond: 3,
+      pauseOnClauseEnd: false,
+    };
+    const baseMs = getIntervalMsForSettings(settings);
+
+    expect(getDelayMsForWord("hello,", settings)).toBe(baseMs);
+    expect(getDelayMsForWord("done.", settings)).toBe(baseMs);
+  });
+
+  test("multiplies the base interval by the clause factor when on", () => {
+    const settings = {
+      ...DEFAULT_QUICKDRAW_SETTINGS,
+      wordsPerSecond: 3,
+      pauseOnClauseEnd: true,
+    };
+    const baseMs = getIntervalMsForSettings(settings);
+
+    expect(getDelayMsForWord("plain", settings)).toBe(baseMs);
+    expect(getDelayMsForWord("hello,", settings)).toBe(
+      baseMs * QUICKDRAW_CLAUSE_PAUSE_MULTIPLIERS.clause
+    );
+    expect(getDelayMsForWord("done.", settings)).toBe(
+      baseMs * QUICKDRAW_CLAUSE_PAUSE_MULTIPLIERS.sentence
+    );
+    expect(getDelayMsForWord("wait\u2014", settings)).toBe(
+      baseMs * QUICKDRAW_CLAUSE_PAUSE_MULTIPLIERS.emDash
+    );
   });
 });

@@ -19,6 +19,16 @@
     fontSize: 48,
     fontColor: "#ffffff",
     backgroundColor: "#111827",
+    pauseOnClauseEnd: true,
+  });
+
+  // Extra dwell-time multipliers applied to the base inter-word delay when a word
+  // ends a clause or sentence. These keep reading natural without hard-coding ms
+  // values; getDelayMsForWord multiplies the base interval by the matching factor.
+  const QUICKDRAW_CLAUSE_PAUSE_MULTIPLIERS = Object.freeze({
+    sentence: 3,
+    clause: 2,
+    emDash: 2,
   });
 
   // Pull a value through a whitelist with a fallback so storage is always safe.
@@ -97,6 +107,10 @@
         source.backgroundColor,
         DEFAULT_QUICKDRAW_SETTINGS.backgroundColor
       ),
+      pauseOnClauseEnd:
+        typeof source.pauseOnClauseEnd === "boolean"
+          ? source.pauseOnClauseEnd
+          : DEFAULT_QUICKDRAW_SETTINGS.pauseOnClauseEnd,
     };
   }
 
@@ -217,6 +231,45 @@
     return Math.max(1, Math.round(1000 / safe.wordsPerSecond));
   }
 
+  // Classify the trailing punctuation of a word so the reader can dwell longer
+  // on clause / sentence endings. Treats wrapping quotes / brackets after the
+  // punctuation as transparent so `world.")` still counts as a sentence end.
+  function getClausePauseMultiplier(word) {
+    if (typeof word !== "string" || word.length === 0) {
+      return 1;
+    }
+
+    const trailing = word.replace(/[)"'\u2019\u201d\]]+$/u, "");
+
+    if (/[.!?]$/.test(trailing)) {
+      return QUICKDRAW_CLAUSE_PAUSE_MULTIPLIERS.sentence;
+    }
+
+    if (/(?:\u2014|--)$/.test(trailing)) {
+      return QUICKDRAW_CLAUSE_PAUSE_MULTIPLIERS.emDash;
+    }
+
+    if (/[,;:]$/.test(trailing)) {
+      return QUICKDRAW_CLAUSE_PAUSE_MULTIPLIERS.clause;
+    }
+
+    return 1;
+  }
+
+  // Pick how long the just-shown word stays on screen. Honors pauseOnClauseEnd
+  // so users can opt out of the natural-cadence pauses if they prefer a steady
+  // rhythm. The base interval is always honored as a floor.
+  function getDelayMsForWord(word, settings) {
+    const safe = normalizeQuickdrawSettings(settings);
+    const baseMs = getIntervalMsForSettings(safe);
+
+    if (!safe.pauseOnClauseEnd) {
+      return baseMs;
+    }
+
+    return baseMs * getClausePauseMultiplier(word);
+  }
+
   const FocusKitQuickdrawState = {
     QUICKDRAW_MIN_WPS,
     QUICKDRAW_MAX_WPS,
@@ -225,6 +278,7 @@
     QUICKDRAW_SETTINGS_STORAGE_KEY,
     QUICKDRAW_SESSION_STORAGE_KEY,
     DEFAULT_QUICKDRAW_SETTINGS,
+    QUICKDRAW_CLAUSE_PAUSE_MULTIPLIERS,
     clampInteger,
     normalizeHexColor,
     normalizeQuickdrawSettings,
@@ -234,6 +288,8 @@
     restoreQuickdrawSession,
     createQuickdrawSession,
     getIntervalMsForSettings,
+    getClausePauseMultiplier,
+    getDelayMsForWord,
   };
 
   if (typeof globalThis !== "undefined") {

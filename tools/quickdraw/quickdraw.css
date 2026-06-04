@@ -158,6 +158,20 @@ body {
   border-radius: 4px;
 }
 
+.setting--toggle {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  grid-column: 1 / -1;
+}
+
+.setting-checkbox {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
 /* Buttons */
 .btn-primary {
   background: var(--accent);

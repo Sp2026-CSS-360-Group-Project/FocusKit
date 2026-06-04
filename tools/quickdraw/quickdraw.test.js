@@ -88,6 +88,7 @@ describe("QuickDraw reader page", () => {
     expect(document.getElementById("fontSizeInput").value).toBe("48");
     expect(document.getElementById("fontColorInput").value).toBe("#ffffff");
     expect(document.getElementById("bgColorInput").value).toBe("#111827");
+    expect(document.getElementById("pauseClauseInput").checked).toBe(true);
   });
 
   test("Go shows the reader screen and renders the first word immediately", () => {
@@ -208,6 +209,47 @@ describe("QuickDraw reader page", () => {
     expect(wordBox.style.backgroundColor).toMatch(
       /^(#112233|rgb\(17,\s*34,\s*51\))$/i
     );
+  });
+
+  test("lingers extra on words ending in a clause when the toggle is on", () => {
+    document.getElementById("textInput").value = "Hello, world.";
+    clickById("goBtn");
+
+    expect(document.getElementById("currentWord").textContent).toBe("Hello,");
+
+    // Base interval at the default 3 wps is 333ms. With the clause multiplier
+    // of 2, advancing 334ms is not yet enough to leave the comma word.
+    jest.advanceTimersByTime(334);
+    expect(document.getElementById("currentWord").textContent).toBe("Hello,");
+
+    jest.advanceTimersByTime(334);
+    expect(document.getElementById("currentWord").textContent).toBe("world.");
+  });
+
+  test("uses the base interval for every word when the toggle is off", () => {
+    const pauseToggle = document.getElementById("pauseClauseInput");
+
+    pauseToggle.checked = false;
+    pauseToggle.dispatchEvent(new Event("change"));
+
+    document.getElementById("textInput").value = "Hello, world.";
+    clickById("goBtn");
+
+    expect(document.getElementById("currentWord").textContent).toBe("Hello,");
+
+    jest.advanceTimersByTime(334);
+    expect(document.getElementById("currentWord").textContent).toBe("world.");
+  });
+
+  test("the clause toggle is persisted to chrome.storage.local", () => {
+    const pauseToggle = document.getElementById("pauseClauseInput");
+
+    pauseToggle.checked = false;
+    pauseToggle.dispatchEvent(new Event("change"));
+
+    const lastSetCall = chrome.storage.local.set.mock.calls.at(-1)[0];
+
+    expect(lastSetCall.quickdrawSettings.pauseOnClauseEnd).toBe(false);
   });
 
   test("New Text button returns to the input screen and stops the timer", () => {
