@@ -143,6 +143,7 @@ describe("Pomodoro timer state", () => {
       isRunning: false,
       lastUpdatedAt: 5000,
       completionFired: false,
+      isBreak: false,
     };
 
     expect(restorePomodoroState(saved, 10000)).toEqual(saved);
@@ -155,6 +156,7 @@ describe("Pomodoro timer state", () => {
       isRunning: false,
       lastUpdatedAt: 5000,
       completionFired: false,
+      isBreak: false,
     };
 
     expect(restorePomodoroState(saved, 10000)).toEqual(saved);

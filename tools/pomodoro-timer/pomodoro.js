@@ -8,6 +8,7 @@ const pomodoroStateHelpers =
 
 const {
   POMODORO_STORAGE_KEY,
+  createBreakState,
   createInitialPomodoroState,
   formatPomodoroInput,
   parsePomodoroTimeInput,
@@ -21,9 +22,13 @@ const {
 
 const POMODORO_EXTENSION_STREAK_STORAGE_KEY = "extensionStreak";
 
+const BREAK_STORAGE_KEY = "breakState";
+
 // Mutable popup session state; pure helpers below make this easy to test separately.
 let pomodoroState = createInitialPomodoroState();
 let pomodoroIntervalId = null;
+let breakState = null;
+let breakIntervalId = null;
 
 // Swap the Tools list for the Pomodoro panel and hydrate saved timer state.
 function openPomodoroPanel() {
@@ -59,7 +64,7 @@ function getPomodoroPanel() {
     <div class="pomodoro-header">
       <div>
         <p class="section-label">POMODORO</p>
-        <h2 class="pomodoro-title">Focus Sprint</h2>
+        <h2 class="pomodoro-title" id="pomodoroTitle">Focus Sprint</h2>
       </div>
       <span class="pomodoro-status" id="pomodoroStatus">Paused</span>
     </div>
@@ -76,6 +81,7 @@ function getPomodoroPanel() {
       <button class="pomodoro-button" type="button" id="pomodoroStart">Start</button>
       <button class="pomodoro-button" type="button" id="pomodoroPause">Pause</button>
       <button class="pomodoro-button" type="button" id="pomodoroReset">Reset</button>
+      <button class="pomodoro-button" type="button" id="pomodoroStartBreak" hidden>Start Break</button>
       <button class="pomodoro-button secondary" type="button" id="pomodoroClose">Close</button>
     </div>
     <div class="pomodoro-stats">
@@ -102,6 +108,9 @@ function getPomodoroPanel() {
     .querySelector("#pomodoroReset")
     .addEventListener("click", handlePomodoroReset);
   panel
+    .querySelector("#pomodoroStartBreak")
+    .addEventListener("click", handleStartBreak);
+  panel
     .querySelector("#pomodoroTime")
     .addEventListener("blur", handlePomodoroTimeBlur);
   panel
@@ -119,6 +128,14 @@ function getPomodoroPanel() {
 
 // Start delegates timer ownership to the background service worker.
 function handlePomodoroStart() {
+  if (breakState) {
+    breakState = { ...breakState, isRunning: true, lastUpdatedAt: Date.now() };
+    renderBreak(breakState);
+    startBreakInterval();
+    chrome.storage.local.set({ [BREAK_STORAGE_KEY]: breakState });
+    return;
+  }
+
   applyPomodoroTimeInput();
 
   sendBackgroundMessage({ action: "pomodoro:start" }, (response) => {
@@ -139,6 +156,16 @@ function handlePomodoroStart() {
 
 // Pause asks the background service worker to account for elapsed time.
 function handlePomodoroPause() {
+  if (breakState) {
+    breakState = pausePomodoro(breakState);
+    renderBreak(breakState);
+    if (breakIntervalId) {
+      clearInterval(breakIntervalId);
+      breakIntervalId = null;
+    }
+    chrome.storage.local.set({ [BREAK_STORAGE_KEY]: breakState });
+    return;
+  }
   // Optimistic UI update: pause immediately in the popup while background
   // commits pause in storage.
   try {
@@ -160,6 +187,17 @@ function handlePomodoroPause() {
 
 // Reset clears the background alarm and returns the UI to the default state.
 function handlePomodoroReset() {
+  if (breakState) {
+    clearInterval(breakIntervalId);
+    breakIntervalId = null;
+    breakState = null;
+    chrome.storage.local.remove(BREAK_STORAGE_KEY);
+    hideBreakPrompt();
+    renderPomodoro(pomodoroState);
+    persistPomodoroState(pomodoroState);
+    return;
+  }
+  hideBreakPrompt();
   sendBackgroundMessage({ action: "pomodoro:reset" }, (response) => {
     handlePomodoroResponse(response);
   });
@@ -180,9 +218,72 @@ function handlePomodoroTimeBlur() {
   applyPomodoroTimeInput();
 }
 
+// Show the start break button when a session completes.
+function showBreakPrompt() {
+  chrome.storage.local.get(["autobreak"], (data) => {
+    if (data.autobreak) {
+      handleStartBreak();
+    } else {
+      const btn = document.getElementById("pomodoroStartBreak");
+      if (btn) btn.hidden = false;
+    }
+  });
+}
+
+// Hide the start break button.
+function hideBreakPrompt() {
+  const btn = document.getElementById("pomodoroStartBreak");
+  if (btn) btn.hidden = true;
+}
+
+// Start the break timer using the saved break duration setting.
+function handleStartBreak() {
+  hideBreakPrompt();
+
+  chrome.storage.local.get(["breakduration"], (data) => {
+    const breakDurationSeconds = (data.breakduration || 5) * 60;
+    breakState = createBreakState(breakDurationSeconds);
+    // Don't start it yet — just show it
+    renderBreak(breakState);
+    chrome.storage.local.set({ [BREAK_STORAGE_KEY]: breakState });
+  });
+}
+
+// Tick the break timer every second.
+function startBreakInterval() {
+  if (breakIntervalId) clearInterval(breakIntervalId);
+  breakIntervalId = setInterval(() => {
+    const now = Date.now();
+    breakState = tickPomodoro(breakState, now);
+    renderBreak(breakState);
+    chrome.storage.local.set({ [BREAK_STORAGE_KEY]: breakState });
+
+    if (!breakState.isRunning) {
+      clearInterval(breakIntervalId);
+      breakIntervalId = null;
+      breakState = null;
+      chrome.storage.local.remove(BREAK_STORAGE_KEY);
+      pomodoroState = resetPomodoro(pomodoroState);
+      renderPomodoro(pomodoroState);
+      persistPomodoroState(pomodoroState);
+    }
+  }, 1000);
+}
+
+// Render the break timer in the existing timer display.
+function renderBreak(state) {
+  getPomodoroPanel();
+  const timerDisplay = document.getElementById("pomodoroTime");
+  timerDisplay.textContent = formatPomodoroInput(state.remainingSeconds);
+  timerDisplay.contentEditable = String(!state.isRunning);
+  document.getElementById("pomodoroStatus").textContent =
+    state.isBreak && state.isRunning ? "Break" : "Break (Paused)";
+  document.getElementById("pomodoroTitle").textContent = "Break Time";
+}
+
 // Make click-to-edit replace the whole timer value while paused.
 function handlePomodoroTimeFocus(event) {
-  if (pomodoroState.isRunning) {
+  if (pomodoroState.isRunning || (breakState && breakState.isRunning)) {
     event.currentTarget.blur();
     return;
   }
@@ -204,6 +305,27 @@ function handlePomodoroTimeKeydown(event) {
 
 // Let users choose the next paused Pomodoro duration by editing the timer text.
 function applyPomodoroTimeInput() {
+  if (breakState) {
+    if (breakState.isRunning) {
+      renderBreak(breakState);
+      return;
+    }
+    const timerDisplay = document.getElementById("pomodoroTime");
+    const durationSeconds = parsePomodoroTimeInput(timerDisplay.textContent);
+    if (!durationSeconds) {
+      renderBreak(breakState);
+      return;
+    }
+    breakState = {
+      ...breakState,
+      remainingSeconds: durationSeconds,
+      durationSeconds,
+    };
+    renderBreak(breakState);
+    chrome.storage.local.set({ [BREAK_STORAGE_KEY]: breakState });
+    return;
+  }
+
   if (pomodoroState.isRunning) {
     renderPomodoro(pomodoroState);
     return;
@@ -252,6 +374,7 @@ function startPomodoroInterval() {
             handlePomodoroResponse(response, { preserveCompleted: true });
           }
         );
+        showBreakPrompt();
       }
       return;
     }
@@ -270,16 +393,28 @@ function stopPomodoroInterval() {
 
 // Load current state from the background so reopened popups reflect elapsed time.
 function loadPomodoroState() {
-  chrome.storage.local.get([POMODORO_STORAGE_KEY], (data) => {
-    if (data && data[POMODORO_STORAGE_KEY]) {
-      handlePomodoroResponse({
-        success: true,
-        state: data[POMODORO_STORAGE_KEY],
-      });
+  chrome.storage.local.get(
+    [POMODORO_STORAGE_KEY, BREAK_STORAGE_KEY],
+    (data) => {
+      if (data && data[BREAK_STORAGE_KEY]) {
+        breakState = data[BREAK_STORAGE_KEY];
+        renderBreak(breakState);
+        if (breakState.isRunning) {
+          startBreakInterval();
+        }
+        return;
+      }
+      if (data && data[POMODORO_STORAGE_KEY]) {
+        handlePomodoroResponse({
+          success: true,
+          state: data[POMODORO_STORAGE_KEY],
+        });
+      }
     }
-  });
+  );
 
   sendBackgroundMessage({ action: "pomodoro:getState" }, (response) => {
+    if (breakState) return; // don't overwrite break UI
     handlePomodoroResponse(response);
   });
 }
@@ -291,6 +426,7 @@ function loadPomodoroStats() {
       ? FocusKitStorage
       : require("../../storage.js");
 
+  // Load today's session count from session history.
   storageHelpers.loadSessions().then((sessions) => {
     const now = new Date();
     const todayStart = new Date(
@@ -299,7 +435,6 @@ function loadPomodoroStats() {
       now.getDate()
     ).getTime();
 
-    // Sessions completed today
     const todayCount = sessions.filter(
       (s) => s.completedAt >= todayStart
     ).length;
@@ -318,11 +453,9 @@ function loadExtensionStreakStat() {
 
 function renderExtensionStreakStat(streakState) {
   const stat = document.getElementById("statStreak");
-
   if (!stat || !streakState || !Number.isSafeInteger(streakState.count)) {
     return;
   }
-
   stat.textContent = String(streakState.count);
 }
 
@@ -358,6 +491,7 @@ function renderPomodoro(state) {
   document.getElementById("pomodoroStatus").textContent = state.isRunning
     ? "Running"
     : "Paused";
+  document.getElementById("pomodoroTitle").textContent = "Focus Sprint";
 }
 
 // Keep storage aligned with the visible popup countdown so reopening restores it.
@@ -373,6 +507,10 @@ if (typeof window !== "undefined") {
 
   chrome.runtime.onMessage.addListener((message) => {
     if (message && message.action === "pomodoro:stateChanged") {
+      // Don't overwrite break UI with focus render
+      if (message.state && message.state.isBreak && breakState) {
+        return;
+      }
       handlePomodoroResponse(
         { success: true, state: message.state },
         { preserveCompleted: true }
@@ -390,6 +528,10 @@ if (typeof window !== "undefined") {
         changes.pomodoroState &&
         changes.pomodoroState.newValue
       ) {
+        // Don't overwrite breakUI with focus render
+        if (changes.pomodoroState.newValue.isBreak && breakState) {
+          return;
+        }
         handlePomodoroResponse(
           {
             success: true,
@@ -397,14 +539,6 @@ if (typeof window !== "undefined") {
           },
           { preserveCompleted: true }
         );
-      }
-
-      if (
-        area === "local" &&
-        changes.extensionStreak &&
-        changes.extensionStreak.newValue
-      ) {
-        renderExtensionStreakStat(changes.extensionStreak.newValue);
       }
     });
   }

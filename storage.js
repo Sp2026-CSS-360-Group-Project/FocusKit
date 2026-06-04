@@ -4,6 +4,9 @@ const DEFAULT_SETTINGS = {
   notifications: true,
   sound: false,
   dark: true,
+  autoBreak: false,
+  focusDuration: 25,
+  breakDuration: 5,
 };
 
 const DEFAULT_SESSIONS = [];

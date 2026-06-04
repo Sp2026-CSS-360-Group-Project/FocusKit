@@ -72,26 +72,32 @@ function createChromeMock(initialStorage = {}) {
     storage: {
       local: {
         get: jest.fn((keys, callback) => {
+          let result;
+
           if (Array.isArray(keys)) {
-            callback(
-              Object.fromEntries(keys.map((key) => [key, storage[key]]))
-            );
+            result = Object.fromEntries(keys.map((key) => [key, storage[key]]));
+          } else if (typeof keys === "string") {
+            result = { [keys]: storage[keys] };
+          } else {
+            result = { ...storage };
+          }
+
+          if (callback) {
+            callback(result);
             return;
           }
 
-          if (typeof keys === "string") {
-            callback({ [keys]: storage[keys] });
-            return;
-          }
-
-          callback({ ...storage });
+          return Promise.resolve(result);
         }),
         set: jest.fn((values, callback) => {
           Object.assign(storage, values);
 
           if (callback) {
             callback();
+            return;
           }
+
+          return Promise.resolve();
         }),
       },
     },
@@ -298,6 +304,7 @@ describe("FocusKit background service worker", () => {
       remainingSeconds: 300,
       durationSeconds: 300,
       isRunning: false,
+      isBreak: false,
       lastUpdatedAt: 99000,
       completionFired: false,
     };
@@ -320,6 +327,7 @@ describe("FocusKit background service worker", () => {
       remainingSeconds: 1499,
       durationSeconds: 1500,
       isRunning: false,
+      isBreak: false,
       lastUpdatedAt: 99000,
       completionFired: false,
     };
