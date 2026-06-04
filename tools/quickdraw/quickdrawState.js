@@ -48,7 +48,10 @@
       return fallback;
     }
 
-    const match = value.trim().toLowerCase().match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/);
+    const match = value
+      .trim()
+      .toLowerCase()
+      .match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/);
 
     if (!match) {
       return fallback;
@@ -166,7 +169,8 @@
       return fallback;
     }
 
-    const savedText = typeof savedSession.text === "string" ? savedSession.text : "";
+    const savedText =
+      typeof savedSession.text === "string" ? savedSession.text : "";
     const words =
       Array.isArray(savedSession.words) && savedSession.words.length
         ? savedSession.words
