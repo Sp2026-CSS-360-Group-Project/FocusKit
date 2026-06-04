@@ -15,7 +15,7 @@ const {
 // Storage keys that mirror the Settings tab checkbox ids.
 const SETTING_KEYS = ["notifications", "sound", "dark"];
 const DEFAULT_DARK_MODE = true;
-const DEBUG_ALERT_RESPONSE_TIMEOUT_MS = 6000;
+const DEBUG_ALERT_RESPONSE_TIMEOUT_MS = 3000;
 const DEBUG_ALERT_SOUND_PATH = "assets/sounds/pomodoro-alarm.wav";
 
 // Track the selected DOM card so only one focus mode appears active at a time.
