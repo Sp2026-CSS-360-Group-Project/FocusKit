@@ -324,7 +324,7 @@ test("FocusKit popup renders core features without console errors", async () => 
     await expect(extensionStreak).toHaveText("Streak: 1 day");
 
     await expect(page.getByText("Pomodoro", { exact: true })).toBeVisible();
-    await expect(page.getByText("Iris", { exact: true })).toBeVisible();
+    await expect(page.getByText("Quickdraw", { exact: true })).toBeVisible();
     await expect(page.getByText("Eisenhower", { exact: true })).toBeVisible();
     await expectPomodoroWorks(page);
     await expectPomodoroCompletionObservable(page);
