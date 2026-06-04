@@ -16,6 +16,7 @@ const {
 const SETTING_KEYS = ["notifications", "sound", "dark"];
 const DEFAULT_DARK_MODE = true;
 const DEBUG_ALERT_RESPONSE_TIMEOUT_MS = 6000;
+const DEBUG_ALERT_SOUND_PATH = "assets/sounds/pomodoro-alarm.wav";
 
 // Track the selected DOM card so only one focus mode appears active at a time.
 const state = {
@@ -562,6 +563,12 @@ function renderExtensionStreak(streakState) {
   if (input) {
     input.value = String(streakState.count);
   }
+
+  const pomodoroStreak = document.getElementById("statStreak");
+
+  if (pomodoroStreak) {
+    pomodoroStreak.textContent = String(streakState.count);
+  }
 }
 
 // Temporary debug control for manually verifying notification and sound APIs.
@@ -575,30 +582,9 @@ function setupDebugAlerts() {
 
   button.addEventListener("click", () => {
     result.textContent = "Requesting test alert...";
-    let isComplete = false;
-    const timeoutId = setTimeout(() => {
-      if (isComplete) {
-        return;
-      }
 
-      isComplete = true;
-      result.textContent =
-        "Test alert failed: No response from background alert check.";
-    }, DEBUG_ALERT_RESPONSE_TIMEOUT_MS);
-
-    chrome.runtime.sendMessage({ action: "debug:testAlerts" }, (response) => {
-      if (isComplete) {
-        return;
-      }
-
-      isComplete = true;
-      clearTimeout(timeoutId);
+    runPopupDebugAlerts().then((response) => {
       console.log("Debug alert result", response);
-
-      if (!response || !Array.isArray(response.errors)) {
-        result.textContent = "Test alert failed: No structured response";
-        return;
-      }
 
       if (response.errors.length > 0) {
         result.textContent = `Test alert failed: ${response.errors.join("; ")}`;
@@ -607,6 +593,108 @@ function setupDebugAlerts() {
 
       result.textContent = "Test alert requested.";
     });
+  });
+}
+
+async function runPopupDebugAlerts() {
+  const response = {
+    notificationRequested: true,
+    soundRequested: true,
+    notificationResult: null,
+    soundResult: null,
+    errors: [],
+  };
+
+  const [notificationResult, soundResult] = await Promise.all([
+    requestDebugNotification(),
+    playDebugSound(),
+  ]);
+
+  response.notificationResult = notificationResult;
+  response.soundResult = soundResult;
+
+  [notificationResult, soundResult].forEach((debugResult) => {
+    if (debugResult && debugResult.error) {
+      response.errors.push(debugResult.error);
+    }
+  });
+
+  return response;
+}
+
+function requestDebugNotification() {
+  if (!chrome.notifications || !chrome.notifications.create) {
+    return Promise.resolve({
+      success: false,
+      error: "Chrome notifications API is unavailable",
+    });
+  }
+
+  return withDebugTimeout(
+    new Promise((resolve) => {
+      chrome.notifications.create(
+        `focuskit-debug-alert-${Date.now()}`,
+        {
+          type: "basic",
+          iconUrl: chrome.runtime.getURL("icons/icon48.png"),
+          title: "FocusKit test alert",
+          message: "Notification and sound test requested.",
+        },
+        (notificationId) => {
+          const errorMessage = chrome.runtime.lastError
+            ? chrome.runtime.lastError.message
+            : "";
+
+          if (errorMessage) {
+            resolve({ success: false, error: errorMessage });
+            return;
+          }
+
+          resolve({ success: true, notificationId });
+        }
+      );
+    }),
+    "Chrome notification test timed out"
+  );
+}
+
+function playDebugSound() {
+  return withDebugTimeout(
+    new Promise((resolve) => {
+      const audio = new window.Audio(
+        chrome.runtime.getURL(DEBUG_ALERT_SOUND_PATH)
+      );
+      audio.volume = 0.8;
+      audio
+        .play()
+        .then(() => resolve({ success: true }))
+        .catch((error) =>
+          resolve({
+            success: false,
+            error: error.message || "Chrome audio playback failed",
+          })
+        );
+    }),
+    "Chrome audio test timed out"
+  );
+}
+
+function withDebugTimeout(promise, message) {
+  return new Promise((resolve) => {
+    const timeoutId = setTimeout(
+      () => resolve({ success: false, error: message }),
+      DEBUG_ALERT_RESPONSE_TIMEOUT_MS
+    );
+
+    promise
+      .then((value) => {
+        clearTimeout(timeoutId);
+        resolve(value);
+      })
+      .catch((error) => {
+        clearTimeout(timeoutId);
+        resolve({ success: false, error: error.message || message });
+      });
   });
 }
 

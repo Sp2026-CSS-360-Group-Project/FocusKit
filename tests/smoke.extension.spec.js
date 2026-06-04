@@ -46,7 +46,7 @@ function expectDarkTheme(colors) {
   expect(luminance(colors.text)).toBeGreaterThan(220);
 }
 
-async function expectPomodoroWorks(page) {
+async function expectPomodoroWorks(page, expectedExtensionStreak = "1") {
   await page.getByRole("button", { name: "Tools" }).click();
   await page.getByRole("button", { name: "Launch Pomodoro" }).click();
 
@@ -61,6 +61,7 @@ async function expectPomodoroWorks(page) {
   await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Reset" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Close" })).toBeVisible();
+  await expect(page.locator("#statStreak")).toHaveText(expectedExtensionStreak);
 
   await display.click();
   await page.keyboard.press("Control+A");
@@ -381,6 +382,11 @@ test("FocusKit popup renders core features without console errors", async () => 
     await streakRow.getByRole("button", { name: "Save" }).click();
     await expect(page.locator("#settingStreakStatus")).toHaveText("Saved.");
     await expect(extensionStreak).toHaveText("Streak: 5 days");
+    await page.getByRole("button", { name: "Tools" }).click();
+    await page.getByRole("button", { name: "Launch Pomodoro" }).click();
+    await expect(page.locator("#statStreak")).toHaveText("5");
+    await page.getByRole("button", { name: "Close" }).click();
+    await page.getByRole("button", { name: "Settings" }).click();
     await page.waitForFunction(
       () =>
         new Promise((resolve) => {
@@ -399,6 +405,12 @@ test("FocusKit popup renders core features without console errors", async () => 
     await page
       .getByRole("button", { name: "Test notification and sound" })
       .click();
+    await expect(page.locator("#debugAlertsResult")).toHaveText(
+      /Test alert (requested|failed:)/
+    );
+    await expect(page.locator("#debugAlertsResult")).not.toHaveText(
+      /No response from background alert check/
+    );
 
     const dark = page.locator("#settingDark");
     const darkModeSettingRow = page.locator(".setting-row", {
@@ -424,7 +436,7 @@ test("FocusKit popup renders core features without console errors", async () => 
       .click();
     await expect(body).toHaveClass(/theme-light/);
     await expect(popupSurface).toHaveClass(/theme-light/);
-    await expectPomodoroWorks(page);
+    await expectPomodoroWorks(page, "5");
 
     const lightSurfaceColors = await readComputedColors(popupSurface);
     const lightCardColors = await readComputedColors(firstToolCard);

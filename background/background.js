@@ -109,6 +109,10 @@ function handleMessage(message, sender, sendResponse) {
     return false;
   }
 
+  if (message.action === "pomodoro:playAlarmSound") {
+    return false;
+  }
+
   handleMessageAsync(message)
     .then(sendResponse)
     .catch((error) =>

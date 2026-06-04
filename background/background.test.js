@@ -122,6 +122,14 @@ function sendMessage(chrome, message) {
   });
 }
 
+function sendOffscreenMessage(chrome, message) {
+  const sendResponse = jest.fn();
+  const keepAlive = chrome.__listeners.messages[0](message, {}, sendResponse);
+
+  expect(keepAlive).toBe(false);
+  expect(sendResponse).not.toHaveBeenCalled();
+}
+
 describe("manifest background registration", () => {
   test("registers the MV3 service worker with required background permissions", () => {
     const manifest = JSON.parse(
@@ -167,6 +175,15 @@ describe("FocusKit background service worker", () => {
     expect(chrome.runtime.onStartup.addListener).toHaveBeenCalledTimes(1);
     expect(chrome.alarms.onAlarm.addListener).toHaveBeenCalledTimes(1);
     expect(chrome.runtime.onMessage.addListener).toHaveBeenCalledTimes(1);
+  });
+
+  test("does not intercept offscreen alarm sound playback messages", () => {
+    const { chrome } = loadBackground();
+
+    sendOffscreenMessage(chrome, {
+      action: "pomodoro:playAlarmSound",
+      soundPath: "chrome-extension://test/assets/sounds/pomodoro-alarm.wav",
+    });
   });
 
   test("handles install and update lifecycle events", async () => {
