@@ -211,6 +211,32 @@ describe("QuickDraw reader page", () => {
     );
   });
 
+  test("font size setting resizes the visible word element, not just its container", () => {
+    // Regression: the .current-word CSS rule hard-codes font-size, so applying
+    // the setting only to the parent .word-box leaves the displayed word at the
+    // CSS default. The setting must reach the element that actually renders text.
+    setInputValue("fontSizeInput", "72");
+
+    document.getElementById("textInput").value = "hello world";
+    clickById("goBtn");
+
+    const currentWord = document.getElementById("currentWord");
+
+    expect(currentWord.style.fontSize).toBe("72px");
+  });
+
+  test("changing font size while the reader is idle updates the visible word", () => {
+    document.getElementById("textInput").value = "hello world";
+    clickById("goBtn");
+    clickById("backBtn");
+
+    setInputValue("fontSizeInput", "32");
+
+    const currentWord = document.getElementById("currentWord");
+
+    expect(currentWord.style.fontSize).toBe("32px");
+  });
+
   test("lingers extra on words ending in a clause when the toggle is on", () => {
     document.getElementById("textInput").value = "Hello, world.";
     clickById("goBtn");
