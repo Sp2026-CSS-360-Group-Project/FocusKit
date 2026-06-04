@@ -44,7 +44,7 @@ describe("TOOLS registry", () => {
     const ids = TOOLS.map((tool) => tool.id);
 
     expect(ids).toEqual(
-      expect.arrayContaining(["pomodoro", "iris", "eisenhower"])
+      expect.arrayContaining(["pomodoro", "quickdraw", "eisenhower"])
     );
   });
 
