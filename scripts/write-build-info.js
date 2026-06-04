@@ -8,10 +8,18 @@ const projectRoot = path.resolve(__dirname, "..");
 const outputPath = path.join(projectRoot, "build-info.js");
 
 function readShortCommit() {
-  return execFileSync("git", ["rev-parse", "--short", "HEAD"], {
-    cwd: projectRoot,
-    encoding: "utf8",
-  }).trim();
+  if (process.env.GITHUB_SHA) {
+    return process.env.GITHUB_SHA.slice(0, 7);
+  }
+
+  try {
+    return execFileSync("git", ["rev-parse", "--short", "HEAD"], {
+      cwd: projectRoot,
+      encoding: "utf8",
+    }).trim();
+  } catch {
+    return "dev";
+  }
 }
 
 function writeBuildInfo(commit) {
@@ -24,4 +32,8 @@ function writeBuildInfo(commit) {
   fs.writeFileSync(outputPath, contents, "utf8");
 }
 
-writeBuildInfo(readShortCommit());
+if (require.main === module) {
+  writeBuildInfo(readShortCommit());
+}
+
+module.exports = { readShortCommit, writeBuildInfo };
