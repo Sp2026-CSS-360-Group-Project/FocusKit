@@ -79,7 +79,29 @@ body {
   font-family: "Sora", sans-serif;
   font-weight: 800;
   font-size: 16px;
-  letter-spacing: -0.5px;
+  letter-spacing: 0;
+}
+
+.header-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.extension-streak {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  max-width: 170px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  padding: 4px 8px;
+  white-space: nowrap;
 }
 
 .status-dot {
@@ -419,10 +441,16 @@ body {
   outline-offset: 1px;
 }
 
+.streak-current,
 .streak-suffix,
 .streak-status {
   color: var(--muted);
   font-size: 11px;
+}
+
+.streak-current {
+  margin: 0;
+  text-align: right;
 }
 
 .streak-save {

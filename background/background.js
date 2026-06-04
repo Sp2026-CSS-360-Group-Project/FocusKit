@@ -325,26 +325,52 @@ function clearPomodoroAlarm() {
 }
 
 // Dispatch all user-facing completion effects, honoring Settings toggles.
-async function handlePomodoroComplete(source = "background") {
+async function handlePomodoroComplete(
+  source = "background",
+  alertHelpers = {}
+) {
   const settings = await getStorage(["notifications", "sound"]);
+  const notify = alertHelpers.notifyPomodoroComplete || notifyPomodoroComplete;
+  const playSound =
+    alertHelpers.playPomodoroAlarmSound || playPomodoroAlarmSound;
   const effects = {
     source,
     notificationRequested: false,
     notificationResult: null,
     soundRequested: false,
+    soundResult: null,
   };
 
-  if (settings.notifications !== false) {
-    effects.notificationRequested = true;
-    effects.notificationResult = await notifyPomodoroComplete();
-  }
+  effects.notificationRequested = settings.notifications !== false;
+  effects.soundRequested = settings.sound === true;
 
-  if (settings.sound === true) {
-    effects.soundRequested = true;
-    effects.soundResult = await playPomodoroAlarmSound();
-  }
+  const notificationPromise = effects.notificationRequested
+    ? notify()
+    : Promise.resolve({ skipped: true, reason: "notifications disabled" });
+  const soundPromise = effects.soundRequested
+    ? playSound()
+    : Promise.resolve({ skipped: true, reason: "sound disabled" });
+
+  const [notificationResult, soundResult] = await Promise.allSettled([
+    notificationPromise,
+    soundPromise,
+  ]);
+
+  effects.notificationResult = unwrapAlertResult(notificationResult);
+  effects.soundResult = unwrapAlertResult(soundResult);
 
   return effects;
+}
+
+function unwrapAlertResult(result) {
+  if (result.status === "fulfilled") {
+    return result.value;
+  }
+
+  return {
+    success: false,
+    error: result.reason ? result.reason.message || String(result.reason) : "",
+  };
 }
 
 // Temporary manual debug action for testing notification and audio APIs directly.

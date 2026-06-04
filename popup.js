@@ -521,7 +521,7 @@ function saveEditableExtensionStreak() {
   const nextState = getEditableDailyStreakState(input.value);
 
   if (!nextState) {
-    status.textContent = "Use whole days.";
+    status.textContent = "Use a whole number of days.";
     input.setAttribute("aria-invalid", "true");
     return;
   }
@@ -536,15 +536,31 @@ function saveEditableExtensionStreak() {
   );
 }
 
-// Reflect current extension-open streak state in the Settings control.
+// Reflect current extension-open streak state everywhere it is visible.
 function renderExtensionStreak(streakState) {
   const input = document.getElementById("settingStreak");
+  const visibleCount = document.getElementById("extensionStreak");
+  const currentCount = document.getElementById("settingStreakCurrent");
 
-  if (!input || !streakState) {
+  if (!streakState || !Number.isSafeInteger(streakState.count)) {
     return;
   }
 
-  input.value = String(streakState.count);
+  const dayLabel = streakState.count === 1 ? "day" : "days";
+  const visibleText = `Streak: ${streakState.count} ${dayLabel}`;
+  const settingsText = `Current streak: ${streakState.count} ${dayLabel}`;
+
+  if (visibleCount) {
+    visibleCount.textContent = visibleText;
+  }
+
+  if (currentCount) {
+    currentCount.textContent = settingsText;
+  }
+
+  if (input) {
+    input.value = String(streakState.count);
+  }
 }
 
 // Temporary debug control for manually verifying notification and sound APIs.

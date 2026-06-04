@@ -312,6 +312,7 @@ test("FocusKit popup renders core features without console errors", async () => 
     await expect(page.locator("#buildWatermark")).toHaveText(
       /^build: (dev|[a-f0-9]{7,})$/
     );
+    const extensionStreak = page.locator("#extensionStreak");
     const body = page.locator("body");
     const popupSurface = page.locator(".app");
     const firstToolCard = page.locator(".tool-card").first();
@@ -319,6 +320,7 @@ test("FocusKit popup renders core features without console errors", async () => 
 
     await expect(page.locator("body")).toHaveClass(/theme-dark/);
     await expect(popupSurface).toHaveClass(/theme-dark/);
+    await expect(extensionStreak).toHaveText("Streak: 1 day");
 
     await expect(page.getByText("Pomodoro", { exact: true })).toBeVisible();
     await expect(page.getByText("Iris", { exact: true })).toBeVisible();
@@ -378,6 +380,7 @@ test("FocusKit popup renders core features without console errors", async () => 
     await streakInput.fill("5");
     await streakRow.getByRole("button", { name: "Save" }).click();
     await expect(page.locator("#settingStreakStatus")).toHaveText("Saved.");
+    await expect(extensionStreak).toHaveText("Streak: 5 days");
     await page.waitForFunction(
       () =>
         new Promise((resolve) => {
@@ -475,6 +478,7 @@ test("FocusKit popup renders core features without console errors", async () => 
     await expect(page.locator("#settingSound")).toBeChecked();
     await expect(page.locator("#settingDark")).not.toBeChecked();
     await expect(page.locator("#settingStreak")).toHaveValue("5");
+    await expect(extensionStreak).toHaveText("Streak: 5 days");
     await expect(body).toHaveClass(/theme-light/);
     await expect(popupSurface).toHaveClass(/theme-light/);
     expectLightTheme(await readComputedColors(popupSurface));
