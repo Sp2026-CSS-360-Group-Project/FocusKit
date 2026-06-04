@@ -19,6 +19,8 @@ const {
   tickPomodoro,
 } = pomodoroStateHelpers;
 
+const POMODORO_EXTENSION_STREAK_STORAGE_KEY = "extensionStreak";
+
 // Mutable popup session state; pure helpers below make this easy to test separately.
 let pomodoroState = createInitialPomodoroState();
 let pomodoroIntervalId = null;
@@ -302,26 +304,26 @@ function loadPomodoroStats() {
       (s) => s.completedAt >= todayStart
     ).length;
 
-    // Current streak: count consecutive days (including today) that have at least one session
-    let streak = 0;
-    let checkDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-    while (true) {
-      const dayStart = checkDate.getTime();
-      const dayEnd = dayStart + 24 * 60 * 60 * 1000;
-      const hasSession = sessions.some(
-        (s) => s.completedAt >= dayStart && s.completedAt < dayEnd
-      );
-
-      if (!hasSession) break;
-
-      streak++;
-      checkDate.setDate(checkDate.getDate() - 1);
-    }
-
     document.getElementById("statToday").textContent = todayCount;
-    document.getElementById("statStreak").textContent = streak;
   });
+
+  loadExtensionStreakStat();
+}
+
+function loadExtensionStreakStat() {
+  chrome.storage.local.get([POMODORO_EXTENSION_STREAK_STORAGE_KEY], (data) => {
+    renderExtensionStreakStat(data[POMODORO_EXTENSION_STREAK_STORAGE_KEY]);
+  });
+}
+
+function renderExtensionStreakStat(streakState) {
+  const stat = document.getElementById("statStreak");
+
+  if (!stat || !streakState || !Number.isSafeInteger(streakState.count)) {
+    return;
+  }
+
+  stat.textContent = String(streakState.count);
 }
 
 // Apply successful background timer responses to the popup state and display.
@@ -395,6 +397,14 @@ if (typeof window !== "undefined") {
           },
           { preserveCompleted: true }
         );
+      }
+
+      if (
+        area === "local" &&
+        changes.extensionStreak &&
+        changes.extensionStreak.newValue
+      ) {
+        renderExtensionStreakStat(changes.extensionStreak.newValue);
       }
     });
   }
