@@ -28,8 +28,13 @@
   }
 
   // Build a fresh paused break state using the given duration in seconds.
-  function createBreakState(breakDurationSeconds = POMODORO_SHORT_BREAK_SECONDS, now = Date.now()) {
-    const safeDuration = normalizePomodoroDurationSeconds(breakDurationSeconds) || POMODORO_SHORT_BREAK_SECONDS;
+  function createBreakState(
+    breakDurationSeconds = POMODORO_SHORT_BREAK_SECONDS,
+    now = Date.now()
+  ) {
+    const safeDuration =
+      normalizePomodoroDurationSeconds(breakDurationSeconds) ||
+      POMODORO_SHORT_BREAK_SECONDS;
     return {
       remainingSeconds: safeDuration,
       durationSeconds: safeDuration,

@@ -73,32 +73,30 @@ function createChromeMock(initialStorage = {}) {
       local: {
         get: jest.fn((keys, callback) => {
           let result;
-        
+
           if (Array.isArray(keys)) {
-            result = Object.fromEntries(
-              keys.map((key) => [key, storage[key]])
-            );
+            result = Object.fromEntries(keys.map((key) => [key, storage[key]]));
           } else if (typeof keys === "string") {
             result = { [keys]: storage[keys] };
           } else {
             result = { ...storage };
           }
-        
+
           if (callback) {
             callback(result);
             return;
           }
-        
+
           return Promise.resolve(result);
         }),
         set: jest.fn((values, callback) => {
           Object.assign(storage, values);
-        
+
           if (callback) {
             callback();
             return;
           }
-        
+
           return Promise.resolve();
         }),
       },

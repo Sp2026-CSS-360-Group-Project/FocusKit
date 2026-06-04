@@ -276,7 +276,8 @@ function renderBreak(state) {
   const timerDisplay = document.getElementById("pomodoroTime");
   timerDisplay.textContent = formatPomodoroInput(state.remainingSeconds);
   timerDisplay.contentEditable = String(!state.isRunning);
-  document.getElementById("pomodoroStatus").textContent = state.isBreak && state.isRunning ? "Break" : "Break (Paused)";
+  document.getElementById("pomodoroStatus").textContent =
+    state.isBreak && state.isRunning ? "Break" : "Break (Paused)";
   document.getElementById("pomodoroTitle").textContent = "Break Time";
 }
 
@@ -315,7 +316,11 @@ function applyPomodoroTimeInput() {
       renderBreak(breakState);
       return;
     }
-    breakState = { ...breakState, remainingSeconds: durationSeconds, durationSeconds };
+    breakState = {
+      ...breakState,
+      remainingSeconds: durationSeconds,
+      durationSeconds,
+    };
     renderBreak(breakState);
     chrome.storage.local.set({ [BREAK_STORAGE_KEY]: breakState });
     return;
@@ -388,22 +393,25 @@ function stopPomodoroInterval() {
 
 // Load current state from the background so reopened popups reflect elapsed time.
 function loadPomodoroState() {
-  chrome.storage.local.get([POMODORO_STORAGE_KEY, BREAK_STORAGE_KEY], (data) => {
-    if (data && data[BREAK_STORAGE_KEY]) {
-      breakState = data[BREAK_STORAGE_KEY];
-      renderBreak(breakState);
-      if (breakState.isRunning) {
-        startBreakInterval();
+  chrome.storage.local.get(
+    [POMODORO_STORAGE_KEY, BREAK_STORAGE_KEY],
+    (data) => {
+      if (data && data[BREAK_STORAGE_KEY]) {
+        breakState = data[BREAK_STORAGE_KEY];
+        renderBreak(breakState);
+        if (breakState.isRunning) {
+          startBreakInterval();
+        }
+        return;
       }
-      return;
+      if (data && data[POMODORO_STORAGE_KEY]) {
+        handlePomodoroResponse({
+          success: true,
+          state: data[POMODORO_STORAGE_KEY],
+        });
+      }
     }
-    if (data && data[POMODORO_STORAGE_KEY]) {
-      handlePomodoroResponse({
-        success: true,
-        state: data[POMODORO_STORAGE_KEY],
-      });
-    }
-  });
+  );
 
   sendBackgroundMessage({ action: "pomodoro:getState" }, (response) => {
     if (breakState) return; // don't overwrite break UI
