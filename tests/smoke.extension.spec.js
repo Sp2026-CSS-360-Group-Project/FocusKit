@@ -46,7 +46,7 @@ function expectDarkTheme(colors) {
   expect(luminance(colors.text)).toBeGreaterThan(220);
 }
 
-async function expectPomodoroWorks(page) {
+async function expectPomodoroWorks(page, expectedExtensionStreak = "1") {
   await page.getByRole("button", { name: "Tools" }).click();
   await page.getByRole("button", { name: "Launch Pomodoro" }).click();
 
@@ -61,6 +61,7 @@ async function expectPomodoroWorks(page) {
   await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Reset" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Close" })).toBeVisible();
+  await expect(page.locator("#statStreak")).toHaveText(expectedExtensionStreak);
 
   await display.click();
   await page.keyboard.press("Control+A");
@@ -309,6 +310,10 @@ test("FocusKit popup renders core features without console errors", async () => 
     await expect(page).toHaveURL(
       new RegExp(`^chrome-extension://${extensionId}/popup\\.html$`)
     );
+    await expect(page.locator("#buildWatermark")).toHaveText(
+      /^build: (dev|[a-f0-9]{7,})$/
+    );
+    const extensionStreak = page.locator("#extensionStreak");
     const body = page.locator("body");
     const popupSurface = page.locator(".app");
     const firstToolCard = page.locator(".tool-card").first();
@@ -316,6 +321,7 @@ test("FocusKit popup renders core features without console errors", async () => 
 
     await expect(page.locator("body")).toHaveClass(/theme-dark/);
     await expect(popupSurface).toHaveClass(/theme-dark/);
+    await expect(extensionStreak).toHaveText("Streak: 1 day");
 
     await expect(page.getByText("Pomodoro", { exact: true })).toBeVisible();
     await expect(page.getByText("Iris", { exact: true })).toBeVisible();
@@ -345,6 +351,7 @@ test("FocusKit popup renders core features without console errors", async () => 
       page.getByText("Sound effects", { exact: true })
     ).toBeVisible();
     await expect(page.getByText("Dark mode", { exact: true })).toBeVisible();
+    await expect(page.getByText("Streak", { exact: true })).toBeVisible();
     await expect(page.getByText("Debug alerts", { exact: true })).toBeVisible();
     await expect(
       page.getByText(
@@ -358,9 +365,52 @@ test("FocusKit popup renders core features without console errors", async () => 
       page.getByText("Auto-start timer", { exact: true })
     ).toHaveCount(0);
 
+    const streakRow = page.locator(".setting-row--streak");
+    const streakInput = streakRow.locator("#settingStreak");
+    await page.waitForFunction(
+      () =>
+        new Promise((resolve) => {
+          chrome.storage.local.get(["extensionStreak"], (data) => {
+            resolve(
+              Boolean(data.extensionStreak && data.extensionStreak.count === 1)
+            );
+          });
+        })
+    );
+    await expect(streakInput).toHaveValue("1");
+    await streakInput.fill("5");
+    await streakRow.getByRole("button", { name: "Save" }).click();
+    await expect(page.locator("#settingStreakStatus")).toHaveText("Saved.");
+    await expect(extensionStreak).toHaveText("Streak: 5 days");
+    await page.getByRole("button", { name: "Tools" }).click();
+    await page.getByRole("button", { name: "Launch Pomodoro" }).click();
+    await expect(page.locator("#statStreak")).toHaveText("5");
+    await page.getByRole("button", { name: "Close" }).click();
+    await page.getByRole("button", { name: "Settings" }).click();
+    await page.waitForFunction(
+      () =>
+        new Promise((resolve) => {
+          chrome.storage.local.get(["extensionStreak"], (data) => {
+            resolve(
+              Boolean(
+                data.extensionStreak &&
+                data.extensionStreak.count === 5 &&
+                typeof data.extensionStreak.lastUseDayKey === "string"
+              )
+            );
+          });
+        })
+    );
+
     await page
       .getByRole("button", { name: "Test notification and sound" })
       .click();
+    await expect(page.locator("#debugAlertsResult")).toHaveText(
+      /Test alert (requested|failed:)/
+    );
+    await expect(page.locator("#debugAlertsResult")).not.toHaveText(
+      /No response from background alert check/
+    );
 
     const dark = page.locator("#settingDark");
     const darkModeSettingRow = page.locator(".setting-row", {
@@ -386,7 +436,7 @@ test("FocusKit popup renders core features without console errors", async () => 
       .click();
     await expect(body).toHaveClass(/theme-light/);
     await expect(popupSurface).toHaveClass(/theme-light/);
-    await expectPomodoroWorks(page);
+    await expectPomodoroWorks(page, "5");
 
     const lightSurfaceColors = await readComputedColors(popupSurface);
     const lightCardColors = await readComputedColors(firstToolCard);
@@ -439,6 +489,8 @@ test("FocusKit popup renders core features without console errors", async () => 
     await expect(page.locator("#settingNotifications")).not.toBeChecked();
     await expect(page.locator("#settingSound")).toBeChecked();
     await expect(page.locator("#settingDark")).not.toBeChecked();
+    await expect(page.locator("#settingStreak")).toHaveValue("5");
+    await expect(extensionStreak).toHaveText("Streak: 5 days");
     await expect(body).toHaveClass(/theme-light/);
     await expect(popupSurface).toHaveClass(/theme-light/);
     expectLightTheme(await readComputedColors(popupSurface));

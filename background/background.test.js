@@ -130,6 +130,14 @@ function sendMessage(chrome, message) {
   });
 }
 
+function sendOffscreenMessage(chrome, message) {
+  const sendResponse = jest.fn();
+  const keepAlive = chrome.__listeners.messages[0](message, {}, sendResponse);
+
+  expect(keepAlive).toBe(false);
+  expect(sendResponse).not.toHaveBeenCalled();
+}
+
 describe("manifest background registration", () => {
   test("registers the MV3 service worker with required background permissions", () => {
     const manifest = JSON.parse(
@@ -175,6 +183,15 @@ describe("FocusKit background service worker", () => {
     expect(chrome.runtime.onStartup.addListener).toHaveBeenCalledTimes(1);
     expect(chrome.alarms.onAlarm.addListener).toHaveBeenCalledTimes(1);
     expect(chrome.runtime.onMessage.addListener).toHaveBeenCalledTimes(1);
+  });
+
+  test("does not intercept offscreen alarm sound playback messages", () => {
+    const { chrome } = loadBackground();
+
+    sendOffscreenMessage(chrome, {
+      action: "pomodoro:playAlarmSound",
+      soundPath: "chrome-extension://test/assets/sounds/pomodoro-alarm.wav",
+    });
   });
 
   test("handles install and update lifecycle events", async () => {
@@ -527,6 +544,99 @@ describe("FocusKit background service worker", () => {
     Date.now.mockRestore();
   });
 
+  test("completion starts notification and sound without waiting for either one", async () => {
+    const { background } = loadBackground({
+      notifications: true,
+      sound: true,
+    });
+    const calls = [];
+    let resolveNotification;
+    let resolveSound;
+    const notifyPomodoroComplete = jest.fn(
+      () =>
+        new Promise((resolve) => {
+          calls.push("notification");
+          resolveNotification = resolve;
+        })
+    );
+    const playPomodoroAlarmSound = jest.fn(
+      () =>
+        new Promise((resolve) => {
+          calls.push("sound");
+          resolveSound = resolve;
+        })
+    );
+
+    const resultPromise = background.handlePomodoroComplete("test", {
+      notifyPomodoroComplete,
+      playPomodoroAlarmSound,
+    });
+
+    await Promise.resolve();
+    expect(calls).toEqual(["notification", "sound"]);
+    expect(notifyPomodoroComplete).toHaveBeenCalledTimes(1);
+    expect(playPomodoroAlarmSound).toHaveBeenCalledTimes(1);
+
+    resolveNotification({ success: true, notificationId: "notification-1" });
+    resolveSound({ success: true });
+
+    await expect(resultPromise).resolves.toMatchObject({
+      source: "test",
+      notificationRequested: true,
+      notificationResult: { success: true, notificationId: "notification-1" },
+      soundRequested: true,
+      soundResult: { success: true },
+    });
+  });
+
+  test("completion still requests notification when sound hangs", async () => {
+    const { background } = loadBackground({
+      notifications: true,
+      sound: true,
+    });
+    const notifyPomodoroComplete = jest.fn(() =>
+      Promise.resolve({ success: true, notificationId: "notification-1" })
+    );
+    const playPomodoroAlarmSound = jest.fn(() => new Promise(() => {}));
+
+    background.handlePomodoroComplete("test", {
+      notifyPomodoroComplete,
+      playPomodoroAlarmSound,
+    });
+
+    await Promise.resolve();
+    expect(notifyPomodoroComplete).toHaveBeenCalledTimes(1);
+    expect(playPomodoroAlarmSound).toHaveBeenCalledTimes(1);
+  });
+
+  test("completion still requests sound when notification fails", async () => {
+    const { background } = loadBackground({
+      notifications: true,
+      sound: true,
+    });
+    const notifyPomodoroComplete = jest.fn(() =>
+      Promise.reject(new Error("Notifications are blocked"))
+    );
+    const playPomodoroAlarmSound = jest.fn(() =>
+      Promise.resolve({ success: true })
+    );
+
+    const result = await background.handlePomodoroComplete("test", {
+      notifyPomodoroComplete,
+      playPomodoroAlarmSound,
+    });
+
+    expect(notifyPomodoroComplete).toHaveBeenCalledTimes(1);
+    expect(playPomodoroAlarmSound).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({
+      notificationResult: {
+        success: false,
+        error: "Notifications are blocked",
+      },
+      soundResult: { success: true },
+    });
+  });
+
   test("records notification creation errors instead of swallowing them", async () => {
     const { background, chrome } = loadBackground({
       notifications: true,
@@ -574,6 +684,8 @@ describe("FocusKit background service worker", () => {
     const { chrome } = loadBackground();
 
     const response = await sendMessage(chrome, { action: "debug:testAlerts" });
+    await Promise.resolve();
+    await Promise.resolve();
 
     expect(response).toMatchObject({
       notificationRequested: true,
@@ -597,6 +709,7 @@ describe("FocusKit background service worker", () => {
       },
       expect.any(Function)
     );
+    expect(chrome.__storage.sessions).toBeUndefined();
   });
 
   test("debug alert test reports notification runtime errors", async () => {
@@ -611,11 +724,10 @@ describe("FocusKit background service worker", () => {
 
     expect(response.notificationRequested).toBe(true);
     expect(response.soundRequested).toBe(true);
-    expect(response.errors).toContain("Notifications are blocked");
+    expect(response.errors).toEqual([]);
     expect(response.notificationResult).toMatchObject({
-      success: false,
-      error: "Notifications are blocked",
-      notificationId: expect.stringMatching(/^focuskit-pomodoro-complete-\d+-/),
+      success: true,
+      requested: true,
     });
   });
 
@@ -629,10 +741,53 @@ describe("FocusKit background service worker", () => {
 
     expect(response.notificationRequested).toBe(true);
     expect(response.soundRequested).toBe(true);
-    expect(response.errors).toContain("Offscreen creation failed");
+    expect(response.errors).toEqual([]);
     expect(response.soundResult).toEqual({
-      success: false,
-      error: "Offscreen creation failed",
+      success: true,
+      requested: true,
+    });
+  });
+
+  test("debug alert test does not hang when notification clear never calls back", async () => {
+    jest.useFakeTimers();
+    const { chrome } = loadBackground();
+    chrome.notifications.clear.mockImplementation(() => {});
+
+    const responsePromise = sendMessage(chrome, { action: "debug:testAlerts" });
+    await jest.advanceTimersByTimeAsync(3000);
+
+    await expect(responsePromise).resolves.toMatchObject({
+      notificationRequested: true,
+      soundRequested: true,
+      errors: [],
+    });
+
+    jest.useRealTimers();
+  });
+
+  test("debug alert test returns a structured response when alert APIs do not call back", async () => {
+    const { chrome } = loadBackground();
+    chrome.notifications.create.mockImplementation(() => {});
+    chrome.runtime.sendMessage.mockImplementation((message, callback) => {
+      if (message.action !== "pomodoro:playAlarmSound" && callback) {
+        callback();
+      }
+    });
+
+    await expect(
+      sendMessage(chrome, { action: "debug:testAlerts" })
+    ).resolves.toMatchObject({
+      notificationRequested: true,
+      soundRequested: true,
+      errors: [],
+      notificationResult: {
+        success: true,
+        requested: true,
+      },
+      soundResult: {
+        success: true,
+        requested: true,
+      },
     });
   });
 

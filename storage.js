@@ -21,7 +21,7 @@ async function saveSettings(settings) {
 
 async function loadSettings() {
   try {
-    const result = await chrome.storage.local.get("settings");
+    const result = await getLocalStorage("settings");
     return result.settings ?? DEFAULT_SETTINGS;
   } catch (error) {
     console.error("Failed to load settings:", error);
@@ -41,12 +41,28 @@ async function saveSession(session) {
 
 async function loadSessions() {
   try {
-    const result = await chrome.storage.local.get("sessions");
+    const result = await getLocalStorage("sessions");
     return result.sessions ?? DEFAULT_SESSIONS;
   } catch (error) {
     console.error("Failed to load sessions:", error);
     return DEFAULT_SESSIONS;
   }
+}
+
+function getLocalStorage(keys) {
+  return new Promise((resolve, reject) => {
+    try {
+      const result = chrome.storage.local.get(keys, (data) => {
+        resolve(data || {});
+      });
+
+      if (result && typeof result.then === "function") {
+        result.then((data) => resolve(data || {})).catch(reject);
+      }
+    } catch (error) {
+      reject(error);
+    }
+  });
 }
 
 if (typeof globalThis !== "undefined") {
@@ -59,5 +75,11 @@ if (typeof globalThis !== "undefined") {
 }
 
 if (typeof module !== "undefined") {
-  module.exports = { saveSettings, loadSettings, saveSession, loadSessions };
+  module.exports = {
+    saveSettings,
+    loadSettings,
+    saveSession,
+    loadSessions,
+    getLocalStorage,
+  };
 }

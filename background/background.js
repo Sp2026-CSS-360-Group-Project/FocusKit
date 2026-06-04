@@ -40,6 +40,7 @@ const POMODORO_ALARM_NAME = "focuskit:pomodoro";
 const POMODORO_ALARM_SOUND_PATH = "assets/sounds/pomodoro-alarm.wav";
 const POMODORO_COMPLETE_NOTIFICATION_ID = "focuskit-pomodoro-complete";
 const POMODORO_ICON_PATH = "icons/icon48.png";
+const POMODORO_CLEAR_NOTIFICATION_TIMEOUT_MS = 500;
 const POMODORO_NOTIFICATION_TIMEOUT_MS = 2000;
 const POMODORO_SOUND_TIMEOUT_MS = 2000;
 // Separate id prevents the break notification overwriting the complete notification.
@@ -105,6 +106,10 @@ async function handleStartup() {
 function handleMessage(message, sender, sendResponse) {
   if (!message || typeof message.action !== "string") {
     sendResponse({ success: false, error: "Invalid message" });
+    return false;
+  }
+
+  if (message.action === "pomodoro:playAlarmSound") {
     return false;
   }
 
@@ -325,26 +330,52 @@ function clearPomodoroAlarm() {
 }
 
 // Dispatch all user-facing completion effects, honoring Settings toggles.
-async function handlePomodoroComplete(source = "background") {
+async function handlePomodoroComplete(
+  source = "background",
+  alertHelpers = {}
+) {
   const settings = await getStorage(["notifications", "sound"]);
+  const notify = alertHelpers.notifyPomodoroComplete || notifyPomodoroComplete;
+  const playSound =
+    alertHelpers.playPomodoroAlarmSound || playPomodoroAlarmSound;
   const effects = {
     source,
     notificationRequested: false,
     notificationResult: null,
     soundRequested: false,
+    soundResult: null,
   };
 
-  if (settings.notifications !== false) {
-    effects.notificationRequested = true;
-    effects.notificationResult = await notifyPomodoroComplete();
-  }
+  effects.notificationRequested = settings.notifications !== false;
+  effects.soundRequested = settings.sound === true;
 
-  if (settings.sound === true) {
-    effects.soundRequested = true;
-    effects.soundResult = await playPomodoroAlarmSound();
-  }
+  const notificationPromise = effects.notificationRequested
+    ? notify()
+    : Promise.resolve({ skipped: true, reason: "notifications disabled" });
+  const soundPromise = effects.soundRequested
+    ? playSound()
+    : Promise.resolve({ skipped: true, reason: "sound disabled" });
+
+  const [notificationResult, soundResult] = await Promise.allSettled([
+    notificationPromise,
+    soundPromise,
+  ]);
+
+  effects.notificationResult = unwrapAlertResult(notificationResult);
+  effects.soundResult = unwrapAlertResult(soundResult);
 
   return effects;
+}
+
+function unwrapAlertResult(result) {
+  if (result.status === "fulfilled") {
+    return result.value;
+  }
+
+  return {
+    success: false,
+    error: result.reason ? result.reason.message || String(result.reason) : "",
+  };
 }
 
 // Temporary manual debug action for testing notification and audio APIs directly.
@@ -352,38 +383,47 @@ async function testDebugAlerts() {
   const result = {
     notificationRequested: true,
     soundRequested: true,
+    notificationResult: { success: true, requested: true },
+    soundResult: { success: true, requested: true },
     errors: [],
   };
 
-  const notificationResult = await notifyPomodoroComplete();
-  result.notificationResult = notificationResult;
+  Promise.allSettled([
+    notifyPomodoroComplete({ recordSession: false }),
+    playPomodoroAlarmSound(),
+  ]).then(([notificationResult, soundResult]) => {
+    const completedResult = {
+      notificationRequested: true,
+      soundRequested: true,
+      notificationResult: unwrapAlertResult(notificationResult),
+      soundResult: unwrapAlertResult(soundResult),
+      errors: [],
+      completedAt: Date.now(),
+    };
 
-  if (notificationResult && notificationResult.error) {
-    result.errors.push(notificationResult.error);
-  }
+    [completedResult.notificationResult, completedResult.soundResult].forEach(
+      (alertResult) => {
+        if (alertResult && alertResult.error) {
+          completedResult.errors.push(alertResult.error);
+        }
+      }
+    );
 
-  try {
-    result.soundResult = await playPomodoroAlarmSound();
-    if (result.soundResult && result.soundResult.error) {
-      result.errors.push(result.soundResult.error);
-    }
-  } catch (error) {
-    const message = error.message || "Pomodoro alarm sound failed";
-    console.error(`Pomodoro alarm sound failed: ${message}`);
-    result.soundResult = { success: false, error: message };
-    result.errors.push(message);
-  }
+    setStorage({ lastDebugAlertResult: completedResult });
+  });
 
   return result;
 }
 
 // Notify the user when a focus sprint ends. Skipped if notifications are disabled.
-async function notifyPomodoroComplete() {
-  // Record the session before anything else
-  await saveSession({
-    completedAt: Date.now(),
-    duration: 25,
-  });
+async function notifyPomodoroComplete(options = {}) {
+  if (options.recordSession !== false) {
+    await saveSession({
+      completedAt: Date.now(),
+      duration: 25,
+    });
+  }
+
   // Clear any stale break notification before showing the complete one.
   await clearNotification(POMODORO_BREAK_NOTIFICATION_ID);
   const notificationId = createNotificationId(
@@ -556,15 +596,21 @@ async function notifyBreakStart() {
 
 // Safely clear a notification without throwing if it does not exist.
 function clearNotification(notificationId) {
-  return new Promise((resolve) => {
-    // chrome.notifications.clear may be absent in Jest stubs, so we check
-    // before calling to keep tests passing without modifying the test file.
-    if (chrome.notifications.clear) {
-      chrome.notifications.clear(notificationId, () => resolve());
-    } else {
-      resolve();
-    }
-  });
+  return withTimeout(
+    new Promise((resolve) => {
+      // chrome.notifications.clear may be absent in Jest stubs, so we check
+      // before calling to keep tests passing without modifying the test file.
+      if (chrome.notifications.clear) {
+        chrome.notifications.clear(notificationId, () =>
+          resolve({ success: true })
+        );
+      } else {
+        resolve({ success: true });
+      }
+    }),
+    POMODORO_CLEAR_NOTIFICATION_TIMEOUT_MS,
+    "Pomodoro notification clear timed out"
+  );
 }
 
 // Broadcast state changes to any open popup without failing when no listener exists.

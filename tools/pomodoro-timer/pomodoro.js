@@ -8,7 +8,6 @@ const pomodoroStateHelpers =
 
 const {
   POMODORO_STORAGE_KEY,
-  POMODORO_SHORT_BREAK_SECONDS,
   createBreakState,
   createInitialPomodoroState,
   formatPomodoroInput,
@@ -20,6 +19,8 @@ const {
   startPomodoro,
   tickPomodoro,
 } = pomodoroStateHelpers;
+
+const POMODORO_EXTENSION_STREAK_STORAGE_KEY = "extensionStreak";
 
 const BREAK_STORAGE_KEY = "breakState";
 

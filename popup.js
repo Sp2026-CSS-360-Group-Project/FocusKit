@@ -1,8 +1,22 @@
 // popup.js - handles tab navigation, registry rendering, and persisted settings.
 
+// Shared streak helpers keep date math out of popup DOM wiring.
+const streakHelpers =
+  typeof globalThis !== "undefined" && globalThis.FocusKitStreakState
+    ? globalThis.FocusKitStreakState
+    : require("./tools/streak/streakState.js");
+
+const {
+  EXTENSION_STREAK_STORAGE_KEY,
+  getEditableDailyStreakState,
+  getNextDailyStreakState,
+} = streakHelpers;
+
 // Storage keys that mirror the Settings tab checkbox ids.
 const SETTING_KEYS = ["notifications", "sound", "dark"];
 const DEFAULT_DARK_MODE = true;
+const DEBUG_ALERT_RESPONSE_TIMEOUT_MS = 3000;
+const DEBUG_ALERT_SOUND_PATH = "assets/sounds/pomodoro-alarm.wav";
 
 // Track the selected DOM card so only one focus mode appears active at a time.
 const state = {
@@ -13,7 +27,9 @@ const state = {
 document.addEventListener("DOMContentLoaded", () => {
   setupTabs();
   renderTools();
+  renderBuildWatermark();
   loadAndRenderFocusModes();
+  setupExtensionStreak();
   loadSavedState();
   window.requestAnimationFrame(loadSavedState);
   setupSettingsPersistence();
@@ -40,6 +56,7 @@ function setupTabs() {
 
       if (button.dataset.tab === "settings") {
         loadSavedState();
+        loadExtensionStreak();
       }
     });
   });
@@ -85,6 +102,24 @@ function renderTools() {
     card.append(toolInfo, launchButton);
     container.appendChild(card);
   });
+}
+
+// Show the generated commit marker so testers can confirm Chrome loaded this build.
+function renderBuildWatermark() {
+  const watermark = document.getElementById("buildWatermark");
+
+  if (!watermark) {
+    return;
+  }
+
+  const commit =
+    typeof globalThis !== "undefined" &&
+    globalThis.FocusKitBuildInfo &&
+    typeof globalThis.FocusKitBuildInfo.commit === "string"
+      ? globalThis.FocusKitBuildInfo.commit
+      : "dev";
+
+  watermark.textContent = `build: ${commit}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -435,6 +470,107 @@ function setupSettingsPersistence() {
     });
 }
 
+// Record a popup open as today's extension use, then render the Settings count.
+function setupExtensionStreak() {
+  recordExtensionUse();
+  setupExtensionStreakEditor();
+}
+
+// Load the saved streak without changing it, useful when the Settings tab reopens.
+function loadExtensionStreak() {
+  chrome.storage.local.get([EXTENSION_STREAK_STORAGE_KEY], (data) => {
+    renderExtensionStreak(data[EXTENSION_STREAK_STORAGE_KEY]);
+  });
+}
+
+// Update stored streak state according to local calendar-day usage.
+function recordExtensionUse(now = Date.now()) {
+  chrome.storage.local.get([EXTENSION_STREAK_STORAGE_KEY], (data) => {
+    const nextState = getNextDailyStreakState(
+      data[EXTENSION_STREAK_STORAGE_KEY],
+      now
+    );
+
+    chrome.storage.local.set(
+      { [EXTENSION_STREAK_STORAGE_KEY]: nextState },
+      () => renderExtensionStreak(nextState)
+    );
+  });
+}
+
+// Wire the editable Settings input to validated streak-state persistence.
+function setupExtensionStreakEditor() {
+  const input = document.getElementById("settingStreak");
+  const saveButton = document.getElementById("settingStreakSave");
+
+  if (!input || !saveButton) {
+    return;
+  }
+
+  saveButton.addEventListener("click", saveEditableExtensionStreak);
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      saveEditableExtensionStreak();
+    }
+  });
+}
+
+// Save a user-entered streak count and anchor it to today's local day.
+function saveEditableExtensionStreak() {
+  const input = document.getElementById("settingStreak");
+  const status = document.getElementById("settingStreakStatus");
+  const nextState = getEditableDailyStreakState(input.value);
+
+  if (!nextState) {
+    status.textContent = "Use a whole number of days.";
+    input.setAttribute("aria-invalid", "true");
+    return;
+  }
+
+  input.setAttribute("aria-invalid", "false");
+  chrome.storage.local.set(
+    { [EXTENSION_STREAK_STORAGE_KEY]: nextState },
+    () => {
+      renderExtensionStreak(nextState);
+      status.textContent = "Saved.";
+    }
+  );
+}
+
+// Reflect current extension-open streak state everywhere it is visible.
+function renderExtensionStreak(streakState) {
+  const input = document.getElementById("settingStreak");
+  const visibleCount = document.getElementById("extensionStreak");
+  const currentCount = document.getElementById("settingStreakCurrent");
+
+  if (!streakState || !Number.isSafeInteger(streakState.count)) {
+    return;
+  }
+
+  const dayLabel = streakState.count === 1 ? "day" : "days";
+  const visibleText = `Streak: ${streakState.count} ${dayLabel}`;
+  const settingsText = `Current streak: ${streakState.count} ${dayLabel}`;
+
+  if (visibleCount) {
+    visibleCount.textContent = visibleText;
+  }
+
+  if (currentCount) {
+    currentCount.textContent = settingsText;
+  }
+
+  if (input) {
+    input.value = String(streakState.count);
+  }
+
+  const pomodoroStreak = document.getElementById("statStreak");
+
+  if (pomodoroStreak) {
+    pomodoroStreak.textContent = String(streakState.count);
+  }
+}
+
 // Temporary debug control for manually verifying notification and sound APIs.
 function setupDebugAlerts() {
   const button = document.getElementById("debugAlertsBtn");
@@ -447,13 +583,8 @@ function setupDebugAlerts() {
   button.addEventListener("click", () => {
     result.textContent = "Requesting test alert...";
 
-    chrome.runtime.sendMessage({ action: "debug:testAlerts" }, (response) => {
+    runPopupDebugAlerts().then((response) => {
       console.log("Debug alert result", response);
-
-      if (!response || !Array.isArray(response.errors)) {
-        result.textContent = "Test alert failed: No structured response";
-        return;
-      }
 
       if (response.errors.length > 0) {
         result.textContent = `Test alert failed: ${response.errors.join("; ")}`;
@@ -462,6 +593,108 @@ function setupDebugAlerts() {
 
       result.textContent = "Test alert requested.";
     });
+  });
+}
+
+async function runPopupDebugAlerts() {
+  const response = {
+    notificationRequested: true,
+    soundRequested: true,
+    notificationResult: null,
+    soundResult: null,
+    errors: [],
+  };
+
+  const [notificationResult, soundResult] = await Promise.all([
+    requestDebugNotification(),
+    playDebugSound(),
+  ]);
+
+  response.notificationResult = notificationResult;
+  response.soundResult = soundResult;
+
+  [notificationResult, soundResult].forEach((debugResult) => {
+    if (debugResult && debugResult.error) {
+      response.errors.push(debugResult.error);
+    }
+  });
+
+  return response;
+}
+
+function requestDebugNotification() {
+  if (!chrome.notifications || !chrome.notifications.create) {
+    return Promise.resolve({
+      success: false,
+      error: "Chrome notifications API is unavailable",
+    });
+  }
+
+  return withDebugTimeout(
+    new Promise((resolve) => {
+      chrome.notifications.create(
+        `focuskit-debug-alert-${Date.now()}`,
+        {
+          type: "basic",
+          iconUrl: chrome.runtime.getURL("icons/icon48.png"),
+          title: "FocusKit test alert",
+          message: "Notification and sound test requested.",
+        },
+        (notificationId) => {
+          const errorMessage = chrome.runtime.lastError
+            ? chrome.runtime.lastError.message
+            : "";
+
+          if (errorMessage) {
+            resolve({ success: false, error: errorMessage });
+            return;
+          }
+
+          resolve({ success: true, notificationId });
+        }
+      );
+    }),
+    "Chrome notification test timed out"
+  );
+}
+
+function playDebugSound() {
+  return withDebugTimeout(
+    new Promise((resolve) => {
+      const audio = new window.Audio(
+        chrome.runtime.getURL(DEBUG_ALERT_SOUND_PATH)
+      );
+      audio.volume = 0.8;
+      audio
+        .play()
+        .then(() => resolve({ success: true }))
+        .catch((error) =>
+          resolve({
+            success: false,
+            error: error.message || "Chrome audio playback failed",
+          })
+        );
+    }),
+    "Chrome audio test timed out"
+  );
+}
+
+function withDebugTimeout(promise, message) {
+  return new Promise((resolve) => {
+    const timeoutId = setTimeout(
+      () => resolve({ success: false, error: message }),
+      DEBUG_ALERT_RESPONSE_TIMEOUT_MS
+    );
+
+    promise
+      .then((value) => {
+        clearTimeout(timeoutId);
+        resolve(value);
+      })
+      .catch((error) => {
+        clearTimeout(timeoutId);
+        resolve({ success: false, error: error.message || message });
+      });
   });
 }
 
@@ -524,5 +757,6 @@ if (typeof module !== "undefined") {
     capitalize,
     applyTheme,
     resolveDarkMode,
+    renderBuildWatermark,
   };
 }
