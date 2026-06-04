@@ -91,87 +91,6 @@ body {
   color: var(--muted);
 }
 
-/* Settings grid on the input screen */
-.settings-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-
-.setting {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 8px 10px;
-}
-
-.setting-label {
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
-.setting-input {
-  background: transparent;
-  border: none;
-  color: var(--text);
-  font-family: "Sora", sans-serif;
-  font-size: 14px;
-  font-weight: 600;
-  padding: 2px 0;
-  outline: none;
-  width: 100%;
-}
-
-.setting-input:focus {
-  color: var(--accent2);
-}
-
-.setting--color {
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.setting-color {
-  appearance: none;
-  -webkit-appearance: none;
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  width: 40px;
-  height: 28px;
-  padding: 0;
-  cursor: pointer;
-}
-
-.setting-color::-webkit-color-swatch-wrapper {
-  padding: 2px;
-}
-
-.setting-color::-webkit-color-swatch {
-  border: none;
-  border-radius: 4px;
-}
-
-.setting--toggle {
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  grid-column: 1 / -1;
-}
-
-.setting-checkbox {
-  width: 18px;
-  height: 18px;
-  accent-color: var(--accent);
-  cursor: pointer;
-}
-
 /* Buttons */
 .btn-primary {
   background: var(--accent);
@@ -235,18 +154,13 @@ body {
   justify-content: center;
   padding: 40px 20px;
   min-height: 200px;
-  transition:
-    background-color 0.2s,
-    color 0.2s;
 }
 
 .current-word {
   font-size: 48px;
   font-weight: 700;
-  color: inherit;
+  color: var(--text);
   letter-spacing: -0.02em;
-  text-align: center;
-  word-break: break-word;
 }
 
 .reader-controls {
