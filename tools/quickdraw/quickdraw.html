@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>QuickDraw</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="quickdraw.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="header">
+        <span class="logo-icon">👁</span>
+        <span class="logo-text">QuickDraw</span>
+      </header>
+
+      <!-- Step 1: Text input -->
+      <div id="inputScreen" class="screen">
+        <p class="label">Paste your text below</p>
+        <textarea
+          id="textInput"
+          class="text-input"
+          placeholder="Paste or type any text here..."
+        ></textarea>
+        <div class="settings-grid">
+          <label class="setting">
+            <span class="setting-label">Words per second (1-7)</span>
+            <input
+              id="wpsInput"
+              class="setting-input"
+              type="number"
+              min="1"
+              max="7"
+              step="1"
+            />
+          </label>
+          <label class="setting">
+            <span class="setting-label">Font size (px)</span>
+            <input
+              id="fontSizeInput"
+              class="setting-input"
+              type="number"
+              min="16"
+              max="96"
+              step="1"
+            />
+          </label>
+          <label class="setting setting--color">
+            <span class="setting-label">Font color</span>
+            <input id="fontColorInput" class="setting-color" type="color" />
+          </label>
+          <label class="setting setting--color">
+            <span class="setting-label">Background</span>
+            <input id="bgColorInput" class="setting-color" type="color" />
+          </label>
+          <label class="setting setting--toggle">
+            <span class="setting-label">Pause at , . — endings</span>
+            <input
+              id="pauseClauseInput"
+              class="setting-checkbox"
+              type="checkbox"
+            />
+          </label>
+        </div>
+        <button id="goBtn" class="btn-primary">Go →</button>
+      </div>
+
+      <!-- Step 2: Word reader -->
+      <div id="readerScreen" class="screen hidden">
+        <div class="word-box">
+          <span id="currentWord" class="current-word">Ready</span>
+        </div>
+        <div class="reader-controls">
+          <button id="pauseBtn" class="btn-secondary">Pause</button>
+          <button id="restartBtn" class="btn-secondary">Restart</button>
+          <button id="backBtn" class="btn-outline">← New Text</button>
+        </div>
+      </div>
+
+      <!-- Step 3: Done -->
+      <div id="doneScreen" class="screen hidden">
+        <p class="done-text">Done!</p>
+        <button id="newTextBtn" class="btn-outline">New Text</button>
+      </div>
+    </div>
+
+    <script src="quickdrawState.js"></script>
+    <script src="quickdraw.js"></script>
+  </body>
+</html>

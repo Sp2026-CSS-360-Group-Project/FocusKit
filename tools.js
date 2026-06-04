@@ -24,13 +24,16 @@ const TOOLS = [
     },
   },
   {
-    id: "iris",
-    name: "Iris",
-    icon: "I",
+    id: "quickdraw",
+    name: "Quickdraw",
+    icon: "Q",
     desc: "Reduce visual clutter for calmer reading sessions.",
     launch(button) {
       markToolLaunched(button, "Ready");
-      chrome.storage.local.set({ activeTool: "iris" });
+      chrome.storage.local.set({ activeTool: "quickdraw" });
+      chrome.tabs.create({
+        url: chrome.runtime.getURL("tools/quickdraw/quickdraw.html"),
+      });
     },
   },
   {
