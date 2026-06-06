@@ -118,14 +118,20 @@ function readSettingsFromInputs(elements) {
 }
 
 // Apply the visual settings to the reader panel so the user sees their choices.
-function applyVisualSettingsToPanel(wordBox, settings) {
-  if (!wordBox) {
-    return;
+// The font size has to be applied to the word element itself, not just the
+// surrounding panel, because .current-word in the stylesheet pins its own
+// font-size and would otherwise win the cascade against an inherited value.
+function applyVisualSettingsToPanel(wordBox, currentWord, settings) {
+  if (wordBox) {
+    wordBox.style.fontSize = settings.fontSize + "px";
+    wordBox.style.color = settings.fontColor;
+    wordBox.style.backgroundColor = settings.backgroundColor;
   }
 
-  wordBox.style.fontSize = settings.fontSize + "px";
-  wordBox.style.color = settings.fontColor;
-  wordBox.style.backgroundColor = settings.backgroundColor;
+  if (currentWord) {
+    currentWord.style.fontSize = settings.fontSize + "px";
+    currentWord.style.color = settings.fontColor;
+  }
 }
 
 // Wire up every interactive element on the page. Safe to call once on load.
@@ -226,7 +232,11 @@ function setupQuickdraw() {
 
     readerSession.words = session.words;
     readerSession.currentIndex = 0;
-    applyVisualSettingsToPanel(elements.wordBox, currentSettings);
+    applyVisualSettingsToPanel(
+      elements.wordBox,
+      elements.currentWord,
+      currentSettings
+    );
     showScreen(elements.readerScreen);
     showCurrentAndAdvance();
     startScheduler();
@@ -254,7 +264,11 @@ function setupQuickdraw() {
 
     stopScheduler();
     readerSession.currentIndex = 0;
-    applyVisualSettingsToPanel(elements.wordBox, currentSettings);
+    applyVisualSettingsToPanel(
+      elements.wordBox,
+      elements.currentWord,
+      currentSettings
+    );
     showCurrentAndAdvance();
     startScheduler();
   }
@@ -269,7 +283,11 @@ function setupQuickdraw() {
     currentSettings = readSettingsFromInputs(elements);
     writeSettingsToInputs(elements, currentSettings);
     persistSettings(currentSettings);
-    applyVisualSettingsToPanel(elements.wordBox, currentSettings);
+    applyVisualSettingsToPanel(
+      elements.wordBox,
+      elements.currentWord,
+      currentSettings
+    );
 
     if (readerSession.isRunning) {
       startScheduler();
@@ -295,7 +313,11 @@ function setupQuickdraw() {
   loadSettings((settings) => {
     currentSettings = settings;
     writeSettingsToInputs(elements, currentSettings);
-    applyVisualSettingsToPanel(elements.wordBox, currentSettings);
+    applyVisualSettingsToPanel(
+      elements.wordBox,
+      elements.currentWord,
+      currentSettings
+    );
   });
 
   return { elements };
