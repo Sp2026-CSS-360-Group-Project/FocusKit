@@ -130,6 +130,77 @@ function sendOffscreenMessage(chrome, message) {
   expect(sendResponse).not.toHaveBeenCalled();
 }
 
+describe("background dependency loading", () => {
+  test("loads storage.js once via its own importScripts guard", () => {
+    jest.resetModules();
+    const previousGlobals = {
+      chrome: global.chrome,
+      importScripts: global.importScripts,
+      pomodoro: global.FocusKitPomodoroState,
+      modes: global.FocusKitModes,
+      storage: global.FocusKitStorage,
+    };
+
+    global.importScripts = jest.fn((scriptPath) => {
+      if (scriptPath === "../tools/pomodoro-timer/pomodoroState.js") {
+        global.FocusKitPomodoroState = {
+          POMODORO_STORAGE_KEY: "pomodoroState",
+          normalizePomodoroDurationSeconds: () => 1500,
+          pausePomodoro: (state) => state,
+          resetPomodoro: () => ({ remainingSeconds: 1500, isRunning: false }),
+          restorePomodoroState: () => ({
+            remainingSeconds: 1500,
+            isRunning: false,
+          }),
+          setPomodoroDurationSeconds: (state) => state,
+          startPomodoro: (state) => state,
+          tickPomodoro: (state) => state,
+        };
+      }
+
+      if (scriptPath === "../tools/focus-modes/focusModes.js") {
+        global.FocusKitModes = {
+          loadFocusModes: (callback) => callback([]),
+        };
+      }
+
+      if (scriptPath === "../storage.js") {
+        global.FocusKitStorage = {
+          saveSession: jest.fn(),
+        };
+      }
+    });
+
+    delete global.chrome;
+    delete global.FocusKitPomodoroState;
+    delete global.FocusKitModes;
+    delete global.FocusKitStorage;
+
+    try {
+      require("./background.js");
+
+      expect(global.importScripts).toHaveBeenCalledWith(
+        "../tools/pomodoro-timer/pomodoroState.js"
+      );
+      expect(global.importScripts).toHaveBeenCalledWith(
+        "../tools/focus-modes/focusModes.js"
+      );
+      expect(global.importScripts).toHaveBeenCalledWith("../storage.js");
+
+      const storageImports = global.importScripts.mock.calls.filter(
+        ([scriptPath]) => scriptPath === "../storage.js"
+      );
+      expect(storageImports).toHaveLength(1);
+    } finally {
+      global.chrome = previousGlobals.chrome;
+      global.importScripts = previousGlobals.importScripts;
+      global.FocusKitPomodoroState = previousGlobals.pomodoro;
+      global.FocusKitModes = previousGlobals.modes;
+      global.FocusKitStorage = previousGlobals.storage;
+    }
+  });
+});
+
 describe("manifest background registration", () => {
   test("registers the MV3 service worker with required background permissions", () => {
     const manifest = JSON.parse(
