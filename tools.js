@@ -21,17 +21,20 @@ const TOOLS = [
       if (window.FocusKitPomodoro) {
         window.FocusKitPomodoro.open();
       }
-    }
+    },
   },
   {
-    id: "iris",
-    name: "Iris",
-    icon: "I",
+    id: "quickdraw",
+    name: "Quickdraw",
+    icon: "Q",
     desc: "Reduce visual clutter for calmer reading sessions.",
     launch(button) {
       markToolLaunched(button, "Ready");
-      chrome.storage.local.set({ activeTool: "iris" });
-    }
+      chrome.storage.local.set({ activeTool: "quickdraw" });
+      chrome.tabs.create({
+        url: chrome.runtime.getURL("tools/quickdraw/quickdraw.html"),
+      });
+    },
   },
   {
     id: "eisenhower",
@@ -41,8 +44,12 @@ const TOOLS = [
     launch(button) {
       markToolLaunched(button, "Ready");
       chrome.storage.local.set({ activeTool: "eisenhower" });
-    }
-  }
+
+      if (window.FocusKitEisenhower) {
+        window.FocusKitEisenhower.open();
+      }
+    },
+  },
 ];
 
 // Registry consumed by popup.js when building the Focus tab.
@@ -51,20 +58,20 @@ const FOCUS_MODES = [
     id: "deep-work",
     name: "Deep Work",
     icon: "D",
-    desc: "Long, distraction-light sessions for complex work."
+    desc: "Long, distraction-light sessions for complex work.",
   },
   {
     id: "study",
     name: "Study",
     icon: "S",
-    desc: "Structured review mode for notes, reading, and practice."
+    desc: "Structured review mode for notes, reading, and practice.",
   },
   {
     id: "break",
     name: "Break",
     icon: "B",
-    desc: "A softer mode for resetting before the next session."
-  }
+    desc: "A softer mode for resetting before the next session.",
+  },
 ];
 
 // Attach registries for popup scripts loaded directly by popup.html.

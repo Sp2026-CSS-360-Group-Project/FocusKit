@@ -3,11 +3,14 @@
   "name": "FocusKit",
   "version": "1.0.0",
   "description": "A productivity extension",
-  "permissions": ["alarms", "notifications", "storage", "tabs"],
+  "permissions": ["alarms", "notifications", "offscreen", "storage", "tabs"],
   "action": {
     "default_popup": "popup.html"
   },
   "background": {
     "service_worker": "background/background.js"
+  },
+  "icons": {
+    "48": "icons/icon48.png"
   }
 }

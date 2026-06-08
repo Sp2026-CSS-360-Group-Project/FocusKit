@@ -4,9 +4,9 @@
 global.chrome = {
   runtime: {
     onMessage: {
-      addListener: jest.fn()
-    }
-  }
+      addListener: jest.fn(),
+    },
+  },
 };
 
 const { doSomething } = require("./content.js");

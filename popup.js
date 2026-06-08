@@ -1,21 +1,39 @@
 // popup.js - handles tab navigation, registry rendering, and persisted settings.
 
+// Shared streak helpers keep date math out of popup DOM wiring.
+const streakHelpers =
+  typeof globalThis !== "undefined" && globalThis.FocusKitStreakState
+    ? globalThis.FocusKitStreakState
+    : require("./tools/streak/streakState.js");
+
+const {
+  EXTENSION_STREAK_STORAGE_KEY,
+  getEditableDailyStreakState,
+  getNextDailyStreakState,
+} = streakHelpers;
+
 // Storage keys that mirror the Settings tab checkbox ids.
 const SETTING_KEYS = ["notifications", "sound", "dark"];
 const DEFAULT_DARK_MODE = true;
+const DEBUG_ALERT_RESPONSE_TIMEOUT_MS = 3000;
+const DEBUG_ALERT_SOUND_PATH = "assets/sounds/pomodoro-alarm.wav";
 
 // Track the selected DOM card so only one focus mode appears active at a time.
 const state = {
-  selectedFocusCard: null
+  selectedFocusCard: null,
 };
 
 // Initialize the popup once Chrome has loaded the extension document.
 document.addEventListener("DOMContentLoaded", () => {
   setupTabs();
   renderTools();
+  renderBuildWatermark();
   loadAndRenderFocusModes();
+  setupExtensionStreak();
   loadSavedState();
+  window.requestAnimationFrame(loadSavedState);
   setupSettingsPersistence();
+  setupDebugAlerts();
   listenForBackgroundMessages();
 });
 
@@ -24,13 +42,22 @@ function setupTabs() {
   const buttons = document.querySelectorAll(".tab-btn");
   const panels = document.querySelectorAll(".tab-panel");
 
-  buttons.forEach(button => {
+  buttons.forEach((button) => {
     button.addEventListener("click", () => {
-      buttons.forEach(currentButton => currentButton.classList.remove("active"));
-      panels.forEach(panel => panel.classList.remove("active"));
+      buttons.forEach((currentButton) =>
+        currentButton.classList.remove("active")
+      );
+      panels.forEach((panel) => panel.classList.remove("active"));
 
       button.classList.add("active");
-      document.getElementById(`tab-${button.dataset.tab}`).classList.add("active");
+      document
+        .getElementById(`tab-${button.dataset.tab}`)
+        .classList.add("active");
+
+      if (button.dataset.tab === "settings") {
+        loadSavedState();
+        loadExtensionStreak();
+      }
     });
   });
 }
@@ -40,7 +67,7 @@ function renderTools() {
   const container = document.getElementById("toolsList");
   container.replaceChildren();
 
-  window.TOOLS.forEach(tool => {
+  window.TOOLS.forEach((tool) => {
     const card = document.createElement("div");
     card.className = "tool-card";
 
@@ -77,6 +104,24 @@ function renderTools() {
   });
 }
 
+// Show the generated commit marker so testers can confirm Chrome loaded this build.
+function renderBuildWatermark() {
+  const watermark = document.getElementById("buildWatermark");
+
+  if (!watermark) {
+    return;
+  }
+
+  const commit =
+    typeof globalThis !== "undefined" &&
+    globalThis.FocusKitBuildInfo &&
+    typeof globalThis.FocusKitBuildInfo.commit === "string"
+      ? globalThis.FocusKitBuildInfo.commit
+      : "dev";
+
+  watermark.textContent = `build: ${commit}`;
+}
+
 // ---------------------------------------------------------------------------
 // Focus mode rendering
 // ---------------------------------------------------------------------------
@@ -93,7 +138,7 @@ function renderFocusModes(modes) {
   const container = document.getElementById("focusModes");
   container.replaceChildren();
 
-  modes.forEach(mode => {
+  modes.forEach((mode) => {
     container.appendChild(buildModeCard(mode));
   });
 
@@ -106,9 +151,11 @@ function renderFocusModes(modes) {
   container.appendChild(addButton);
 
   // Re-apply the saved selection highlight after a re-render.
-  chrome.storage.local.get(["focusMode"], data => {
+  chrome.storage.local.get(["focusMode"], (data) => {
     if (data.focusMode) {
-      const savedCard = container.querySelector(`[data-mode-id="${data.focusMode}"]`);
+      const savedCard = container.querySelector(
+        `[data-mode-id="${data.focusMode}"]`
+      );
       if (savedCard) selectFocusMode(data.focusMode, savedCard, false);
     }
   });
@@ -182,7 +229,7 @@ function openModeForm(existingMode) {
   const existing = document.getElementById("focusModeForm");
   if (existing) existing.remove();
 
-  const allToolIds = (window.TOOLS || []).map(t => t.id);
+  const allToolIds = (window.TOOLS || []).map((t) => t.id);
   const currentEnabled = existingMode ? existingMode.enabledTools || [] : [];
 
   const overlay = document.createElement("div");
@@ -190,7 +237,10 @@ function openModeForm(existingMode) {
   overlay.className = "focus-form-overlay";
   overlay.setAttribute("role", "dialog");
   overlay.setAttribute("aria-modal", "true");
-  overlay.setAttribute("aria-label", existingMode ? "Edit focus mode" : "New focus mode");
+  overlay.setAttribute(
+    "aria-label",
+    existingMode ? "Edit focus mode" : "New focus mode"
+  );
 
   const form = document.createElement("div");
   form.className = "focus-form";
@@ -232,8 +282,8 @@ function openModeForm(existingMode) {
   const toolsGroup = document.createElement("div");
   toolsGroup.className = "focus-form-tools";
 
-  allToolIds.forEach(toolId => {
-    const toolDef = (window.TOOLS || []).find(t => t.id === toolId);
+  allToolIds.forEach((toolId) => {
+    const toolDef = (window.TOOLS || []).find((t) => t.id === toolId);
     const row = document.createElement("label");
     row.className = "focus-form-tool-row";
     const checkbox = document.createElement("input");
@@ -278,9 +328,11 @@ function openModeForm(existingMode) {
     }
     errorMsg.hidden = true;
 
-    const enabledTools = Array.from(toolsGroup.querySelectorAll("input[type=checkbox]"))
-      .filter(cb => cb.checked)
-      .map(cb => cb.value);
+    const enabledTools = Array.from(
+      toolsGroup.querySelectorAll("input[type=checkbox]")
+    )
+      .filter((cb) => cb.checked)
+      .map((cb) => cb.value);
 
     if (existingMode) {
       window.FocusKitModes.updateFocusMode(
@@ -306,7 +358,17 @@ function openModeForm(existingMode) {
   });
 
   buttonRow.append(saveBtn, cancelBtn);
-  form.append(titleRow, nameLabel, nameInput, descLabel, descInput, toolsLabel, toolsGroup, errorMsg, buttonRow);
+  form.append(
+    titleRow,
+    nameLabel,
+    nameInput,
+    descLabel,
+    descInput,
+    toolsLabel,
+    toolsGroup,
+    errorMsg,
+    buttonRow
+  );
   overlay.appendChild(form);
 
   document.getElementById("tab-focus").appendChild(overlay);
@@ -364,12 +426,12 @@ function confirmDeleteMode(mode) {
 
 // Restore checkbox values, theme, and the selected focus mode from chrome.storage.
 function loadSavedState() {
-  chrome.storage.local.get([...SETTING_KEYS, "focusMode"], data => {
+  chrome.storage.local.get([...SETTING_KEYS, "focusMode"], (data) => {
     const isDarkMode = resolveDarkMode(data.dark);
 
     applyTheme(isDarkMode);
 
-    SETTING_KEYS.forEach(key => {
+    SETTING_KEYS.forEach((key) => {
       const input = document.getElementById(`setting${capitalize(key)}`);
 
       if (input && data[key] !== undefined) {
@@ -380,7 +442,9 @@ function loadSavedState() {
     document.getElementById("settingDark").checked = isDarkMode;
 
     if (data.focusMode) {
-      const savedCard = document.querySelector(`[data-mode-id="${data.focusMode}"]`);
+      const savedCard = document.querySelector(
+        `[data-mode-id="${data.focusMode}"]`
+      );
 
       if (savedCard) {
         selectFocusMode(data.focusMode, savedCard, false);
@@ -391,16 +455,246 @@ function loadSavedState() {
 
 // Persist settings as soon as users toggle them, applying theme changes immediately.
 function setupSettingsPersistence() {
-  document.querySelectorAll(".settings-list input[type=checkbox]").forEach(input => {
-    input.addEventListener("change", () => {
-      const key = settingKeyFromInput(input);
+  document
+    .querySelectorAll(".settings-list input[type=checkbox]")
+    .forEach((input) => {
+      input.addEventListener("change", () => {
+        const key = settingKeyFromInput(input);
 
-      if (key === "dark") {
-        applyTheme(input.checked);
+        if (key === "dark") {
+          applyTheme(input.checked);
+        }
+
+        chrome.storage.local.set({ [key]: input.checked });
+      });
+    });
+}
+
+// Record a popup open as today's extension use, then render the Settings count.
+function setupExtensionStreak() {
+  recordExtensionUse();
+  setupExtensionStreakEditor();
+}
+
+// Load the saved streak without changing it, useful when the Settings tab reopens.
+function loadExtensionStreak() {
+  chrome.storage.local.get([EXTENSION_STREAK_STORAGE_KEY], (data) => {
+    renderExtensionStreak(data[EXTENSION_STREAK_STORAGE_KEY]);
+  });
+}
+
+// Update stored streak state according to local calendar-day usage.
+function recordExtensionUse(now = Date.now()) {
+  chrome.storage.local.get([EXTENSION_STREAK_STORAGE_KEY], (data) => {
+    const nextState = getNextDailyStreakState(
+      data[EXTENSION_STREAK_STORAGE_KEY],
+      now
+    );
+
+    chrome.storage.local.set(
+      { [EXTENSION_STREAK_STORAGE_KEY]: nextState },
+      () => renderExtensionStreak(nextState)
+    );
+  });
+}
+
+// Wire the editable Settings input to validated streak-state persistence.
+function setupExtensionStreakEditor() {
+  const input = document.getElementById("settingStreak");
+  const saveButton = document.getElementById("settingStreakSave");
+
+  if (!input || !saveButton) {
+    return;
+  }
+
+  saveButton.addEventListener("click", saveEditableExtensionStreak);
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      saveEditableExtensionStreak();
+    }
+  });
+}
+
+// Save a user-entered streak count and anchor it to today's local day.
+function saveEditableExtensionStreak() {
+  const input = document.getElementById("settingStreak");
+  const status = document.getElementById("settingStreakStatus");
+  const nextState = getEditableDailyStreakState(input.value);
+
+  if (!nextState) {
+    status.textContent = "Use a whole number of days.";
+    input.setAttribute("aria-invalid", "true");
+    return;
+  }
+
+  input.setAttribute("aria-invalid", "false");
+  chrome.storage.local.set(
+    { [EXTENSION_STREAK_STORAGE_KEY]: nextState },
+    () => {
+      renderExtensionStreak(nextState);
+      status.textContent = "Saved.";
+    }
+  );
+}
+
+// Reflect current extension-open streak state everywhere it is visible.
+function renderExtensionStreak(streakState) {
+  const input = document.getElementById("settingStreak");
+  const visibleCount = document.getElementById("extensionStreak");
+  const currentCount = document.getElementById("settingStreakCurrent");
+
+  if (!streakState || !Number.isSafeInteger(streakState.count)) {
+    return;
+  }
+
+  const dayLabel = streakState.count === 1 ? "day" : "days";
+  const visibleText = `Streak: ${streakState.count} ${dayLabel}`;
+  const settingsText = `Current streak: ${streakState.count} ${dayLabel}`;
+
+  if (visibleCount) {
+    visibleCount.textContent = visibleText;
+  }
+
+  if (currentCount) {
+    currentCount.textContent = settingsText;
+  }
+
+  if (input) {
+    input.value = String(streakState.count);
+  }
+
+  const pomodoroStreak = document.getElementById("statStreak");
+
+  if (pomodoroStreak) {
+    pomodoroStreak.textContent = String(streakState.count);
+  }
+}
+
+// Temporary debug control for manually verifying notification and sound APIs.
+function setupDebugAlerts() {
+  const button = document.getElementById("debugAlertsBtn");
+  const result = document.getElementById("debugAlertsResult");
+
+  if (!button || !result) {
+    return;
+  }
+
+  button.addEventListener("click", () => {
+    result.textContent = "Requesting test alert...";
+
+    runPopupDebugAlerts().then((response) => {
+      console.log("Debug alert result", response);
+
+      if (response.errors.length > 0) {
+        result.textContent = `Test alert failed: ${response.errors.join("; ")}`;
+        return;
       }
 
-      chrome.storage.local.set({ [key]: input.checked });
+      result.textContent = "Test alert requested.";
     });
+  });
+}
+
+async function runPopupDebugAlerts() {
+  const response = {
+    notificationRequested: true,
+    soundRequested: true,
+    notificationResult: null,
+    soundResult: null,
+    errors: [],
+  };
+
+  const [notificationResult, soundResult] = await Promise.all([
+    requestDebugNotification(),
+    playDebugSound(),
+  ]);
+
+  response.notificationResult = notificationResult;
+  response.soundResult = soundResult;
+
+  [notificationResult, soundResult].forEach((debugResult) => {
+    if (debugResult && debugResult.error) {
+      response.errors.push(debugResult.error);
+    }
+  });
+
+  return response;
+}
+
+function requestDebugNotification() {
+  if (!chrome.notifications || !chrome.notifications.create) {
+    return Promise.resolve({
+      success: false,
+      error: "Chrome notifications API is unavailable",
+    });
+  }
+
+  return withDebugTimeout(
+    new Promise((resolve) => {
+      chrome.notifications.create(
+        `focuskit-debug-alert-${Date.now()}`,
+        {
+          type: "basic",
+          iconUrl: chrome.runtime.getURL("icons/icon48.png"),
+          title: "FocusKit test alert",
+          message: "Notification and sound test requested.",
+        },
+        (notificationId) => {
+          const errorMessage = chrome.runtime.lastError
+            ? chrome.runtime.lastError.message
+            : "";
+
+          if (errorMessage) {
+            resolve({ success: false, error: errorMessage });
+            return;
+          }
+
+          resolve({ success: true, notificationId });
+        }
+      );
+    }),
+    "Chrome notification test timed out"
+  );
+}
+
+function playDebugSound() {
+  return withDebugTimeout(
+    new Promise((resolve) => {
+      const audio = new window.Audio(
+        chrome.runtime.getURL(DEBUG_ALERT_SOUND_PATH)
+      );
+      audio.volume = 0.8;
+      audio
+        .play()
+        .then(() => resolve({ success: true }))
+        .catch((error) =>
+          resolve({
+            success: false,
+            error: error.message || "Chrome audio playback failed",
+          })
+        );
+    }),
+    "Chrome audio test timed out"
+  );
+}
+
+function withDebugTimeout(promise, message) {
+  return new Promise((resolve) => {
+    const timeoutId = setTimeout(
+      () => resolve({ success: false, error: message }),
+      DEBUG_ALERT_RESPONSE_TIMEOUT_MS
+    );
+
+    promise
+      .then((value) => {
+        clearTimeout(timeoutId);
+        resolve(value);
+      })
+      .catch((error) => {
+        clearTimeout(timeoutId);
+        resolve({ success: false, error: error.message || message });
+      });
   });
 }
 
@@ -416,7 +710,7 @@ function listenForBackgroundMessages() {
 
 // Apply theme classes to both roots used by the popup CSS.
 function applyTheme(isDarkMode) {
-  document.querySelectorAll("body, .app").forEach(themeRoot => {
+  document.querySelectorAll("body, .app").forEach((themeRoot) => {
     themeRoot.classList.toggle("theme-dark", isDarkMode);
     themeRoot.classList.toggle("theme-light", !isDarkMode);
   });
@@ -458,5 +752,11 @@ function capitalize(value) {
 
 // Export pure helpers for Jest while leaving the popup globals untouched in Chrome.
 if (typeof module !== "undefined") {
-  module.exports = { settingKeyFromInput, capitalize, applyTheme, resolveDarkMode };
+  module.exports = {
+    settingKeyFromInput,
+    capitalize,
+    applyTheme,
+    resolveDarkMode,
+    renderBuildWatermark,
+  };
 }

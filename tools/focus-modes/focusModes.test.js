@@ -19,9 +19,9 @@ global.chrome = {
       remove: (key, cb) => {
         delete store[key];
         if (cb) cb();
-      }
-    }
-  }
+      },
+    },
+  },
 };
 
 const {
@@ -30,7 +30,7 @@ const {
   loadFocusModes,
   createFocusMode,
   updateFocusMode,
-  deleteFocusMode
+  deleteFocusMode,
 } = require("./focusModes");
 
 beforeEach(() => {
@@ -59,14 +59,20 @@ test("loadFocusModes returns stored modes when present", (done) => {
 // createFocusMode --------------------------------------------------------------
 
 test("createFocusMode appends a new mode with a generated id", (done) => {
-  createFocusMode("Flow", "Get into flow.", ["pomodoro"], {}, (newMode, all) => {
-    expect(newMode.name).toBe("Flow");
-    expect(newMode.icon).toBe("F");
-    expect(newMode.builtIn).toBe(false);
-    expect(newMode.id).toMatch(/^custom-\d+$/);
-    expect(all).toHaveLength(DEFAULT_FOCUS_MODES.length + 1);
-    done();
-  });
+  createFocusMode(
+    "Flow",
+    "Get into flow.",
+    ["pomodoro"],
+    {},
+    (newMode, all) => {
+      expect(newMode.name).toBe("Flow");
+      expect(newMode.icon).toBe("F");
+      expect(newMode.builtIn).toBe(false);
+      expect(newMode.id).toMatch(/^custom-\d+$/);
+      expect(all).toHaveLength(DEFAULT_FOCUS_MODES.length + 1);
+      done();
+    }
+  );
 });
 
 test("createFocusMode trims whitespace from name and desc", (done) => {
@@ -96,14 +102,18 @@ test("updateFocusMode updates enabledTools on a custom mode", (done) => {
     name: "My Mode",
     builtIn: false,
     enabledTools: ["pomodoro"],
-    toolSettings: {}
+    toolSettings: {},
   };
   store[FOCUS_MODES_STORAGE_KEY] = [custom];
-  updateFocusMode("custom-1", { enabledTools: ["pomodoro", "eisenhower"] }, (updated) => {
-    const mode = updated.find((m) => m.id === "custom-1");
-    expect(mode.enabledTools).toEqual(["pomodoro", "eisenhower"]);
-    done();
-  });
+  updateFocusMode(
+    "custom-1",
+    { enabledTools: ["pomodoro", "eisenhower"] },
+    (updated) => {
+      const mode = updated.find((m) => m.id === "custom-1");
+      expect(mode.enabledTools).toEqual(["pomodoro", "eisenhower"]);
+      done();
+    }
+  );
 });
 
 // deleteFocusMode --------------------------------------------------------------
@@ -113,7 +123,7 @@ test("deleteFocusMode removes a custom mode", (done) => {
     id: "custom-99",
     name: "Temp",
     builtIn: false,
-    enabledTools: []
+    enabledTools: [],
   };
   store[FOCUS_MODES_STORAGE_KEY] = [...DEFAULT_FOCUS_MODES, custom];
   deleteFocusMode("custom-99", (success, updated) => {
@@ -137,7 +147,7 @@ test("deleteFocusMode clears active mode when the deleted mode was selected", (d
     id: "custom-55",
     name: "Gone",
     builtIn: false,
-    enabledTools: []
+    enabledTools: [],
   };
   store[FOCUS_MODES_STORAGE_KEY] = [...DEFAULT_FOCUS_MODES, custom];
   store["focusMode"] = "custom-55";
