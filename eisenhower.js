@@ -102,18 +102,10 @@ function getEisenhowerPanel() {
 
   document.getElementById("tab-tools").appendChild(panel);
 
-  panel
-    .querySelector("#eisenhowerClose")
-    .addEventListener("click", closeEisenhowerPanel);
-  panel
-    .querySelector("#eisenhowerAddBtn")
-    .addEventListener("click", () => openTaskForm(null));
-  panel
-    .querySelector("#eisenhowerSortField")
-    .addEventListener("change", handleSortFieldChange);
-  panel
-    .querySelector("#eisenhowerSortDir")
-    .addEventListener("click", handleSortDirToggle);
+  panel.querySelector("#eisenhowerClose").addEventListener("click", closeEisenhowerPanel);
+  panel.querySelector("#eisenhowerAddBtn").addEventListener("click", () => openTaskForm(null));
+  panel.querySelector("#eisenhowerSortField").addEventListener("change", handleSortFieldChange);
+  panel.querySelector("#eisenhowerSortDir").addEventListener("click", handleSortDirToggle);
 
   panel.querySelectorAll("[data-quadrant]").forEach((zone) => {
     zone.addEventListener("dragover", handleDragOver);
@@ -164,11 +156,7 @@ function renderEisenhower() {
   const backlog = document.getElementById("eisenhowerBacklog");
   backlog.replaceChildren();
 
-  const sorted = sortTasks(
-    getBacklogTasks(eisenhowerTasks),
-    sortField,
-    sortAscending
-  );
+  const sorted = sortTasks(getBacklogTasks(eisenhowerTasks), sortField, sortAscending);
 
   if (sorted.length === 0) {
     const empty = document.createElement("p");
@@ -315,10 +303,7 @@ function handleAutoScroll(event) {
   if (y < threshold) direction = -1;
   else if (y > viewportHeight - threshold) direction = 1;
 
-  if (direction === 0) {
-    stopAutoScroll();
-    return;
-  }
+  if (direction === 0) { stopAutoScroll(); return; }
   if (autoScrollRafId) return;
 
   const step = () => {
@@ -431,17 +416,13 @@ function openTaskForm(existingTask) {
 
   // Populate existing reminders if editing
   const initialReminders = isEditing ? [...existingTask.reminders] : [];
-  initialReminders.forEach((r) =>
-    addReminderRow(remindersList, r.minutesBefore)
-  );
+  initialReminders.forEach((r) => addReminderRow(remindersList, r.minutesBefore));
 
   const addReminderBtn = document.createElement("button");
   addReminderBtn.className = "eisenhower-add-reminder-btn";
   addReminderBtn.type = "button";
   addReminderBtn.textContent = "+ Add reminder";
-  addReminderBtn.addEventListener("click", () =>
-    addReminderRow(remindersList, 60)
-  );
+  addReminderBtn.addEventListener("click", () => addReminderRow(remindersList, 60));
 
   // ---------------------------------------------------------------------------
   // Save / Cancel
@@ -552,10 +533,7 @@ function collectReminders(container) {
   const rows = container.querySelectorAll(".eisenhower-reminder-row");
   const reminders = [];
   rows.forEach((row) => {
-    const val = parseInt(
-      row.querySelector(".eisenhower-reminder-input").value,
-      10
-    );
+    const val = parseInt(row.querySelector(".eisenhower-reminder-input").value, 10);
     if (!isNaN(val) && val > 0) {
       reminders.push({ minutesBefore: val });
     }
