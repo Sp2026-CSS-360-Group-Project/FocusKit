@@ -665,9 +665,9 @@ body {
   overflow-y: auto;
 
   transition:
-    border-color .2s ease,
-    transform .15s ease,
-    background .2s ease;
+    border-color 0.2s ease,
+    transform 0.15s ease,
+    background 0.2s ease;
 }
 
 .eisenhower-quadrant:hover {
@@ -684,7 +684,7 @@ body {
   font-size: 12px;
   font-weight: 700;
   color: var(--accent2);
-  letter-spacing: .08em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   margin-bottom: 10px;
   padding-bottom: 6px;
@@ -729,15 +729,15 @@ body {
 /* TASKS */
 
 .eisenhower-task {
-  background: rgba(255,255,255,0.03);
+  background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 8px;
   margin-bottom: 8px;
 
   transition:
-    transform .15s ease,
-    border-color .15s ease;
+    transform 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .eisenhower-task:hover {
@@ -862,7 +862,7 @@ body {
   align-items: center;
   justify-content: center;
 
-  background: rgba(0,0,0,.7);
+  background: rgba(0, 0, 0, 0.7);
   z-index: 9999;
 }
 
@@ -880,7 +880,7 @@ body {
   flex-direction: column;
   gap: 10px;
 
-  box-shadow: 0 20px 40px rgba(0,0,0,.35);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
 }
 
 .eisenhower-form-title {
@@ -917,7 +917,7 @@ body {
 .eisenhower-form-section-label {
   font-size: 11px;
   color: var(--muted);
-  letter-spacing: .1em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
