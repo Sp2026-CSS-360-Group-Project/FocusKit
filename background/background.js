@@ -9,6 +9,13 @@ if (
   importScripts("../tools/focus-modes/focusModes.js");
 }
 
+if (
+  typeof importScripts === "function" &&
+  typeof FocusKitStorage === "undefined"
+) {
+  importScripts("../storage.js");
+}
+
 // Reuse shared state helpers in Jest without duplicating timer rules in the worker.
 const pomodoroHelpers =
   typeof FocusKitPomodoroState !== "undefined"
