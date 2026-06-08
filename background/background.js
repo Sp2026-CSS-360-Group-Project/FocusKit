@@ -14,6 +14,12 @@ if (
   typeof FocusKitModes === "undefined"
 ) {
   importScripts("../tools/focus-modes/focusModes.js");
+}
+
+if (
+  typeof importScripts === "function" &&
+  typeof FocusKitStorage === "undefined"
+) {
   importScripts("../storage.js");
 }
 
