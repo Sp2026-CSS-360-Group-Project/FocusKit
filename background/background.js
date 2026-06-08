@@ -1,19 +1,20 @@
 // background.js - MV3 service worker for timers, notifications, tabs, and popup messages.
 
-// Load shared Pomodoro state helpers when running as a Chrome service worker.
+// Load shared helpers when running as a Chrome service worker. Each guard
+// checks the global the corresponding script defines so importScripts is
+// never called twice on the same file across worker re-evaluations.
 if (
   typeof importScripts === "function" &&
   typeof FocusKitPomodoroState === "undefined"
 ) {
   importScripts("../tools/pomodor-timer/pomodoroState.js");
-  importScripts("../tools/focus-modes/focusModes.js");
 }
 
 if (
   typeof importScripts === "function" &&
-  typeof FocusKitStorage === "undefined"
+  typeof FocusKitModes === "undefined"
 ) {
-  importScripts("../storage.js");
+  importScripts("../tools/focus-modes/focusModes.js");
 }
 
 // Reuse shared state helpers in Jest without duplicating timer rules in the worker.

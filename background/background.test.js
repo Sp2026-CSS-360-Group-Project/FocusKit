@@ -116,28 +116,17 @@ function sendOffscreenMessage(chrome, message) {
 }
 
 describe("background dependency loading", () => {
-  test("loads storage.js once via its own importScripts guard", () => {
-    jest.resetModules();
-    const previousGlobals = {
-      chrome: global.chrome,
-      importScripts: global.importScripts,
-      pomodoro: global.FocusKitPomodoroState,
-      modes: global.FocusKitModes,
-      storage: global.FocusKitStorage,
-    };
-
+  function setupImportScriptsMock() {
     global.importScripts = jest.fn((scriptPath) => {
       if (scriptPath === "../tools/pomodor-timer/pomodoroState.js") {
         global.FocusKitPomodoroState = {
           POMODORO_STORAGE_KEY: "pomodoroState",
-          normalizePomodoroDurationSeconds: () => 1500,
           pausePomodoro: (state) => state,
           resetPomodoro: () => ({ remainingSeconds: 1500, isRunning: false }),
           restorePomodoroState: () => ({
             remainingSeconds: 1500,
             isRunning: false,
           }),
-          setPomodoroDurationSeconds: (state) => state,
           startPomodoro: (state) => state,
           tickPomodoro: (state) => state,
         };
@@ -145,44 +134,79 @@ describe("background dependency loading", () => {
 
       if (scriptPath === "../tools/focus-modes/focusModes.js") {
         global.FocusKitModes = {
+          FOCUS_MODES_STORAGE_KEY: "focusKit:focusModes",
           loadFocusModes: (callback) => callback([]),
         };
       }
-
-      if (scriptPath === "../storage.js") {
-        global.FocusKitStorage = {
-          saveSession: jest.fn(),
-        };
-      }
     });
+  }
+
+  function withCleanGlobals(run) {
+    const previous = {
+      chrome: global.chrome,
+      importScripts: global.importScripts,
+      pomodoro: global.FocusKitPomodoroState,
+      modes: global.FocusKitModes,
+    };
 
     delete global.chrome;
     delete global.FocusKitPomodoroState;
     delete global.FocusKitModes;
-    delete global.FocusKitStorage;
 
     try {
+      run();
+    } finally {
+      global.chrome = previous.chrome;
+      global.importScripts = previous.importScripts;
+      global.FocusKitPomodoroState = previous.pomodoro;
+      global.FocusKitModes = previous.modes;
+    }
+  }
+
+  test("loads each shared helper exactly once and never imports storage.js", () => {
+    jest.resetModules();
+    withCleanGlobals(() => {
+      setupImportScriptsMock();
       require("./background.js");
 
-      expect(global.importScripts).toHaveBeenCalledWith(
-        "../tools/pomodor-timer/pomodoroState.js"
-      );
-      expect(global.importScripts).toHaveBeenCalledWith(
-        "../tools/focus-modes/focusModes.js"
-      );
-      expect(global.importScripts).toHaveBeenCalledWith("../storage.js");
+      const paths = global.importScripts.mock.calls.map(([p]) => p);
 
-      const storageImports = global.importScripts.mock.calls.filter(
-        ([scriptPath]) => scriptPath === "../storage.js"
-      );
-      expect(storageImports).toHaveLength(1);
-    } finally {
-      global.chrome = previousGlobals.chrome;
-      global.importScripts = previousGlobals.importScripts;
-      global.FocusKitPomodoroState = previousGlobals.pomodoro;
-      global.FocusKitModes = previousGlobals.modes;
-      global.FocusKitStorage = previousGlobals.storage;
-    }
+      expect(paths).toContain("../tools/pomodor-timer/pomodoroState.js");
+      expect(paths).toContain("../tools/focus-modes/focusModes.js");
+      expect(paths).not.toContain("../storage.js");
+      expect(
+        paths.filter((p) => p === "../tools/pomodor-timer/pomodoroState.js")
+      ).toHaveLength(1);
+      expect(
+        paths.filter((p) => p === "../tools/focus-modes/focusModes.js")
+      ).toHaveLength(1);
+    });
+  });
+
+  test("guards skip importScripts when helper globals are already defined", () => {
+    jest.resetModules();
+    withCleanGlobals(() => {
+      setupImportScriptsMock();
+      global.FocusKitPomodoroState = {
+        POMODORO_STORAGE_KEY: "pomodoroState",
+        pausePomodoro: (state) => state,
+        resetPomodoro: () => ({ remainingSeconds: 1500, isRunning: false }),
+        restorePomodoroState: () => ({
+          remainingSeconds: 1500,
+          isRunning: false,
+        }),
+        startPomodoro: (state) => state,
+        tickPomodoro: (state) => state,
+      };
+      global.FocusKitModes = {
+        FOCUS_MODES_STORAGE_KEY: "focusKit:focusModes",
+        loadFocusModes: (callback) => callback([]),
+      };
+
+      require("./background.js");
+
+      expect(global.importScripts).not.toHaveBeenCalled();
+    });
   });
 });
 describe("manifest background registration", () => {
