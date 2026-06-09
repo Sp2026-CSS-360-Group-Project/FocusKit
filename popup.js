@@ -735,8 +735,11 @@ function selectFocusMode(modeId, card, shouldPersist) {
   statusDot.setAttribute("aria-label", `Focus mode active: ${modeId}`);
 
   if (shouldPersist) {
+    console.log("Selecting focus mode:", modeId);
     chrome.storage.local.set({ focusMode: modeId });
-    chrome.runtime.sendMessage({ action: "focus:setMode", modeId });
+    chrome.runtime.sendMessage({ action: "focus:setMode", modeId }, (response) => {
+      console.log("applyFocusMode response:", JSON.stringify(response));
+    });
   }
 }
 

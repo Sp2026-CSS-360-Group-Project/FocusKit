@@ -12,8 +12,11 @@ const DEFAULT_FOCUS_MODES = [
     icon: "D",
     desc: "Long, distraction-light sessions for complex work.",
     builtIn: true,
-    enabledTools: ["pomodoro"],
-    toolSettings: {},
+    enabledTools: ["pomodoro", "eisenhower"],
+    toolSettings: {
+      focusDuration: 30,
+      breakDuration: 10,
+    },
   },
   {
     id: "study",
@@ -21,19 +24,27 @@ const DEFAULT_FOCUS_MODES = [
     icon: "S",
     desc: "Structured review mode for notes, reading, and practice.",
     builtIn: true,
-    enabledTools: ["pomodoro", "eisenhower"],
-    toolSettings: {},
-  },
-  {
-    id: "break",
-    name: "Lazy",
-    icon: "L",
-    desc: "Doomscrolling Time!",
-    builtIn: true,
-    enabledTools: [],
-    toolSettings: {},
+    enabledTools: ["pomodoro", "quickdraw"],
+    toolSettings: {
+      focusDuration: 20,
+      breakDuration: 10,
+    },
   },
 ];
+
+// Migrate stored modes to remove deprecated built-ins and add new ones.
+function migrateFocusModes(stored) {
+  // Remove the old "break/lazy" built-in mode.
+  const withoutLazy = stored.filter((m) => m.id !== "break");
+
+  // Update built-in modes to latest toolSettings while preserving custom modes.
+  return withoutLazy.map((mode) => {
+    if (!mode.builtIn) return mode;
+    const latest = DEFAULT_FOCUS_MODES.find((d) => d.id === mode.id);
+    if (!latest) return mode;
+    return { ...mode, enabledTools: latest.enabledTools, toolSettings: latest.toolSettings };
+  });
+}
 
 // Load all focus modes from storage, falling back to defaults when storage is empty.
 function loadFocusModes(callback) {
@@ -48,7 +59,11 @@ function loadFocusModes(callback) {
         }
       );
     } else {
-      callback(stored);
+      const migrated = migrateFocusModes(stored);
+      chrome.storage.local.set(
+        { [FOCUS_MODES_STORAGE_KEY]: migrated },
+        () => { callback(migrated); }
+      );
     }
   });
 }

@@ -66,12 +66,6 @@ const FOCUS_MODES = [
     icon: "S",
     desc: "Structured review mode for notes, reading, and practice.",
   },
-  {
-    id: "break",
-    name: "Break",
-    icon: "B",
-    desc: "A softer mode for resetting before the next session.",
-  },
 ];
 
 // Attach registries for popup scripts loaded directly by popup.html.
