@@ -1,5 +1,6 @@
 /* global chrome */
-
+(() => {
+  
 const DEFAULT_SETTINGS = {
   notifications: true,
   sound: false,
@@ -83,3 +84,5 @@ if (typeof module !== "undefined") {
     getLocalStorage,
   };
 }
+
+})();

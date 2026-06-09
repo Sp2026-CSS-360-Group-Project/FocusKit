@@ -13,7 +13,7 @@ const {
 } = streakHelpers;
 
 // Storage keys that mirror the Settings tab checkbox ids.
-const SETTING_KEYS = ["notifications", "sound", "dark"];
+const SETTING_KEYS = ["notifications", "sound", "dark", "autobreak", "focusduration", "breakduration"];
 const DEFAULT_DARK_MODE = true;
 const DEBUG_ALERT_RESPONSE_TIMEOUT_MS = 3000;
 const DEBUG_ALERT_SOUND_PATH = "assets/sounds/pomodoro-alarm.wav";
@@ -26,7 +26,6 @@ const state = {
 // Initialize the popup once Chrome has loaded the extension document.
 document.addEventListener("DOMContentLoaded", () => {
   setupTabs();
-  renderTools();
   renderBuildWatermark();
   loadAndRenderFocusModes();
   setupExtensionStreak();
@@ -35,7 +34,19 @@ document.addEventListener("DOMContentLoaded", () => {
   setupSettingsPersistence();
   setupDebugAlerts();
   listenForBackgroundMessages();
+  loadActiveTools(); // add this
 });
+
+// Load active tools from storage and re-render the tools list.
+function loadActiveTools() {
+  chrome.storage.local.get(["activeTools", "focusMode"], (data) => {
+    if (data.focusMode && data.activeTools) {
+      renderTools(data.activeTools);
+    } else {
+      renderTools();
+    }
+  });
+}
 
 // Wire the top navigation buttons to their matching tab panels.
 function setupTabs() {
@@ -63,11 +74,15 @@ function setupTabs() {
 }
 
 // Render tool cards from the registry in tools.js so smoke tests and UI share one source.
-function renderTools() {
+function renderTools(allowedToolIds = null) {
   const container = document.getElementById("toolsList");
   container.replaceChildren();
 
-  window.TOOLS.forEach((tool) => {
+  const toolsToRender = allowedToolIds
+    ? window.TOOLS.filter((tool) => allowedToolIds.includes(tool.id))
+    : window.TOOLS;
+
+  toolsToRender.forEach((tool) => {
     const card = document.createElement("div");
     card.className = "tool-card";
 
@@ -428,46 +443,44 @@ function confirmDeleteMode(mode) {
 function loadSavedState() {
   chrome.storage.local.get([...SETTING_KEYS, "focusMode"], (data) => {
     const isDarkMode = resolveDarkMode(data.dark);
-
     applyTheme(isDarkMode);
 
     SETTING_KEYS.forEach((key) => {
       const input = document.getElementById(`setting${capitalize(key)}`);
+      if (!input) return;
 
-      if (input && data[key] !== undefined) {
+      if (input.type === "checkbox" && data[key] !== undefined) {
         input.checked = data[key];
+      } else if (input.type === "number" && data[key] !== undefined) {
+        input.value = data[key];
       }
     });
 
     document.getElementById("settingDark").checked = isDarkMode;
 
     if (data.focusMode) {
-      const savedCard = document.querySelector(
-        `[data-mode-id="${data.focusMode}"]`
-      );
-
-      if (savedCard) {
-        selectFocusMode(data.focusMode, savedCard, false);
-      }
+      const savedCard = document.querySelector(`[data-mode-id="${data.focusMode}"]`);
+      if (savedCard) selectFocusMode(data.focusMode, savedCard, false);
     }
   });
 }
 
 // Persist settings as soon as users toggle them, applying theme changes immediately.
 function setupSettingsPersistence() {
-  document
-    .querySelectorAll(".settings-list input[type=checkbox]")
-    .forEach((input) => {
-      input.addEventListener("change", () => {
-        const key = settingKeyFromInput(input);
-
-        if (key === "dark") {
-          applyTheme(input.checked);
-        }
-
-        chrome.storage.local.set({ [key]: input.checked });
-      });
+  document.querySelectorAll(".settings-list input[type=checkbox]").forEach((input) => {
+    input.addEventListener("change", () => {
+      const key = settingKeyFromInput(input);
+      if (key === "dark") applyTheme(input.checked);
+      chrome.storage.local.set({ [key]: input.checked });
     });
+  });
+
+  document.querySelectorAll(".settings-list input[type=number]").forEach((input) => {
+    input.addEventListener("change", () => {
+      const key = settingKeyFromInput(input);
+      chrome.storage.local.set({ [key]: parseInt(input.value, 10) });
+    });
+  });
 }
 
 // Record a popup open as today's extension use, then render the Settings count.
@@ -704,6 +717,7 @@ function listenForBackgroundMessages() {
     if (message.action === "focus:modeApplied") {
       const card = document.querySelector(`[data-mode-id="${message.modeId}"]`);
       if (card) selectFocusMode(message.modeId, card, false);
+      renderTools(message.enabledTools);
     }
   });
 }
