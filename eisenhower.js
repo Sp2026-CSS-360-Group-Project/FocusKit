@@ -212,19 +212,19 @@ function buildTaskCard(task) {
     meta.appendChild(due);
   }
 
-  // Edit button - only shown for backlog tasks
-  if (task.location === "backlog") {
-    const editBtn = document.createElement("button");
-    editBtn.className = "eisenhower-task-edit";
-    editBtn.type = "button";
-    editBtn.textContent = "✎";
-    editBtn.setAttribute("aria-label", `Edit ${task.name}`);
-    editBtn.addEventListener("click", (event) => {
-      event.stopPropagation();
-      openTaskForm(task);
-    });
-    meta.appendChild(editBtn);
-  }
+ // Edit button
+const editBtn = document.createElement("button");
+editBtn.className = "eisenhower-task-edit";
+editBtn.type = "button";
+editBtn.textContent = "✎";
+editBtn.title = "Edit task";
+
+editBtn.addEventListener("click", (event) => {
+  event.stopPropagation();
+  openTaskForm(task);
+});
+
+meta.appendChild(editBtn);
 
   const deleteBtn = document.createElement("button");
   deleteBtn.className = "eisenhower-task-delete";
@@ -575,130 +575,4 @@ if (typeof module !== "undefined") {
   module.exports = eisenhowerStateHelpers;
 }
 
-// ---------------------------------------------------------------------------
-// CSS for new Eisenhower features - injected at runtime to keep styles
-// scoped to the Eisenhower panel without touching popup.css
-// ---------------------------------------------------------------------------
-(function injectEisenhowerStyles() {
-  if (document.getElementById("eisenhowerDynamicStyles")) return;
 
-  const style = document.createElement("style");
-  style.id = "eisenhowerDynamicStyles";
-  style.textContent = `
-    /* Vertical axis label */
-    .eisenhower-matrix-wrap {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-
-    .eisenhower-axis-y {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      writing-mode: vertical-rl;
-      transform: rotate(180deg);
-      font-size: 9px;
-      letter-spacing: 0.08em;
-      color: var(--muted);
-      text-transform: uppercase;
-      min-width: 14px;
-      height: 100%;
-    }
-
-    /* Edit button on task cards */
-    .eisenhower-task-edit {
-      background: transparent;
-      border: none;
-      color: var(--muted);
-      cursor: pointer;
-      font-size: 13px;
-      padding: 0 3px;
-      transition: color 0.15s;
-    }
-
-    .eisenhower-task-edit:hover {
-      color: var(--accent2);
-    }
-
-    /* Due date warning */
-    .eisenhower-form-warning {
-      font-size: 11px;
-      color: #f59e0b;
-      margin-top: -4px;
-    }
-
-    /* Reminders section */
-    .eisenhower-form-section-label {
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: var(--muted);
-      margin-top: 4px;
-    }
-
-    .eisenhower-reminders-list {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .eisenhower-reminder-row {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .eisenhower-reminder-input {
-      width: 70px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      color: var(--text);
-      font-family: "Sora", sans-serif;
-      font-size: 12px;
-      padding: 4px 8px;
-      outline: none;
-    }
-
-    .eisenhower-reminder-label {
-      font-size: 12px;
-      color: var(--muted);
-      flex: 1;
-    }
-
-    .eisenhower-reminder-remove {
-      background: transparent;
-      border: none;
-      color: var(--muted);
-      cursor: pointer;
-      font-size: 16px;
-      padding: 0 4px;
-      transition: color 0.15s;
-    }
-
-    .eisenhower-reminder-remove:hover {
-      color: var(--danger);
-    }
-
-    .eisenhower-add-reminder-btn {
-      background: transparent;
-      border: 1px dashed var(--border);
-      border-radius: 6px;
-      color: var(--muted);
-      font-family: "Sora", sans-serif;
-      font-size: 12px;
-      padding: 6px 10px;
-      cursor: pointer;
-      transition: color 0.15s, border-color 0.15s;
-      text-align: left;
-    }
-
-    .eisenhower-add-reminder-btn:hover {
-      color: var(--text);
-      border-color: var(--accent);
-    }
-  `;
-
-  document.head.appendChild(style);
-})();
