@@ -99,6 +99,7 @@ function createChromeMock(initialStorage = {}) {
 
           return Promise.resolve();
         }),
+        remove: jest.fn((keys, callback) => callback && callback()),
       },
     },
     tabs: {

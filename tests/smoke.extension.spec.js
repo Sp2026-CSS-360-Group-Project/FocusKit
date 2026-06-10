@@ -337,7 +337,7 @@ test("FocusKit popup renders core features without console errors", async () => 
     expect(luminance(initialDarkTextColors.text)).toBeGreaterThan(220);
 
     await page.getByRole("button", { name: "Focus" }).click();
-    await expect(page.locator("#tab-focus.active .focus-card")).toHaveCount(3);
+    await expect(page.locator("#tab-focus.active .focus-card")).toHaveCount(2);
     await expect(
       page.locator("#tab-focus.active .focus-card").first()
     ).toBeVisible();

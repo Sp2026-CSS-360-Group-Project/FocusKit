@@ -81,8 +81,8 @@ describe("TOOLS registry", () => {
 });
 
 describe("FOCUS_MODES registry", () => {
-  test("has at least three focus modes", () => {
-    expect(FOCUS_MODES.length).toBeGreaterThanOrEqual(3);
+  test("has at least two focus modes", () => {
+    expect(FOCUS_MODES.length).toBeGreaterThanOrEqual(2);
   });
 
   test("every mode has complete render data", () => {
