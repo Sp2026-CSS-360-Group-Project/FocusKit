@@ -42,7 +42,9 @@
       if (!Array.isArray(stored)) {
         chrome.storage.local.set(
           { [FOCUS_MODES_STORAGE_KEY]: DEFAULT_FOCUS_MODES },
-          () => { callback(DEFAULT_FOCUS_MODES); }
+          () => {
+            callback(DEFAULT_FOCUS_MODES);
+          }
         );
       } else {
         callback(stored);

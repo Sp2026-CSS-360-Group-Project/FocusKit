@@ -637,14 +637,19 @@ async function applyFocusMode(modeId) {
 
   await setStorage({ focusMode: modeId });
   // Clear any active break state when switching focus modes.
-  await new Promise((resolve) => chrome.storage.local.remove("breakState", resolve));
+  await new Promise((resolve) =>
+    chrome.storage.local.remove("breakState", resolve)
+  );
   // Apply tool settings from the mode profile to storage.
   const toolSettings = modeDefinition ? modeDefinition.toolSettings || {} : {};
   if (toolSettings.focusDuration) {
     const focusDurationSeconds = toolSettings.focusDuration * 60;
     const currentPomState = await readPomodoroState();
     if (!currentPomState.isRunning) {
-      const newPomState = setPomodoroDurationSeconds(currentPomState, focusDurationSeconds);
+      const newPomState = setPomodoroDurationSeconds(
+        currentPomState,
+        focusDurationSeconds
+      );
       await setStorage({ [POMODORO_STORAGE_KEY]: newPomState });
       broadcastPomodoroState(newPomState);
     }

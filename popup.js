@@ -358,8 +358,16 @@ function openModeForm(existingMode) {
     autoBreakLabel.append(autoBreakInput, autoBreakText);
 
     // Show/hide based on whether Pomodoro is checked
-    const pomodoroCheckbox = toolsGroup.querySelector('input[value="pomodoro"]');
-    const timerFields = [focusDurationLabel, focusDurationInput, breakDurationLabel, breakDurationInput, autoBreakLabel];
+    const pomodoroCheckbox = toolsGroup.querySelector(
+      'input[value="pomodoro"]'
+    );
+    const timerFields = [
+      focusDurationLabel,
+      focusDurationInput,
+      breakDurationLabel,
+      breakDurationInput,
+      autoBreakLabel,
+    ];
 
     function updateTimerVisibility() {
       const show = pomodoroCheckbox && pomodoroCheckbox.checked;
@@ -427,7 +435,12 @@ function openModeForm(existingMode) {
     if (existingMode) {
       window.FocusKitModes.updateFocusMode(
         existingMode.id,
-        { name: trimmedName, desc: descInput.value.trim(), enabledTools, toolSettings },
+        {
+          name: trimmedName,
+          desc: descInput.value.trim(),
+          enabledTools,
+          toolSettings,
+        },
         () => {
           overlay.remove();
           loadAndRenderFocusModes();
@@ -456,7 +469,15 @@ function openModeForm(existingMode) {
     nameInput,
     descLabel,
     descInput,
-    ...(focusDurationLabel ? [focusDurationLabel, focusDurationInput, breakDurationLabel, breakDurationInput, autoBreakLabel] : []),
+    ...(focusDurationLabel
+      ? [
+          focusDurationLabel,
+          focusDurationInput,
+          breakDurationLabel,
+          breakDurationInput,
+          autoBreakLabel,
+        ]
+      : []),
     toolsLabel,
     toolsGroup,
     errorMsg,
@@ -537,7 +558,9 @@ function loadSavedState() {
     document.getElementById("settingDark").checked = isDarkMode;
 
     if (data.focusMode) {
-      const savedCard = document.querySelector(`[data-mode-id="${data.focusMode}"]`);
+      const savedCard = document.querySelector(
+        `[data-mode-id="${data.focusMode}"]`
+      );
       if (savedCard) selectFocusMode(data.focusMode, savedCard, false);
     }
   });
@@ -545,20 +568,24 @@ function loadSavedState() {
 
 // Persist settings as soon as users toggle them, applying theme changes immediately.
 function setupSettingsPersistence() {
-  document.querySelectorAll(".settings-list input[type=checkbox]").forEach((input) => {
-    input.addEventListener("change", () => {
-      const key = settingKeyFromInput(input);
-      if (key === "dark") applyTheme(input.checked);
-      chrome.storage.local.set({ [key]: input.checked });
+  document
+    .querySelectorAll(".settings-list input[type=checkbox]")
+    .forEach((input) => {
+      input.addEventListener("change", () => {
+        const key = settingKeyFromInput(input);
+        if (key === "dark") applyTheme(input.checked);
+        chrome.storage.local.set({ [key]: input.checked });
+      });
     });
-  });
 
-  document.querySelectorAll(".settings-list input[type=number]").forEach((input) => {
-    input.addEventListener("change", () => {
-      const key = settingKeyFromInput(input);
-      chrome.storage.local.set({ [key]: parseInt(input.value, 10) });
+  document
+    .querySelectorAll(".settings-list input[type=number]")
+    .forEach((input) => {
+      input.addEventListener("change", () => {
+        const key = settingKeyFromInput(input);
+        chrome.storage.local.set({ [key]: parseInt(input.value, 10) });
+      });
     });
-  });
 }
 
 // Record a popup open as today's extension use, then render the Settings count.
