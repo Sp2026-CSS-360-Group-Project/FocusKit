@@ -2,6 +2,22 @@
 
 ## Static analysis and review
 
+
+How to setup the extension on chrome.
+
+1:
+Download the repo.
+2:
+open chrome, go to settings click extensions.
+3:
+press load unpacked.
+4:
+find repo folder, select it.
+5: 
+refresh extension next to the errors button.
+6: 
+open Focuskit chrome extension like other chrome extensions normally.
+
 This project uses Prettier as the formatter. Run `npm run format` to format
 tracked source, test, configuration, and documentation files, or
 `npm run format:check` to verify formatting without changing files.
