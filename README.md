@@ -18,17 +18,21 @@ refresh extension next to the errors button.
 open Focuskit chrome extension like other chrome extensions normally.
 
 ## Features
+
 Tools Hub
+
 - Pomodoro Timer
 - Quickdraw
 - Eisenhower Matrix
 
 Focus Tab
+
 - For users to customize FocusKit to their liking.
 - New modes can be made with users selecting which tools they want to enable.
 - Pomodoro timer features can be adjusted here
 
 Settings
+
 - Notifications
 - Sound effects (For pomodoro timer)
 - Dark mode / Light mode
