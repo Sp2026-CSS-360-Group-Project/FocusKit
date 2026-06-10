@@ -26,7 +26,6 @@ const state = {
 // Initialize the popup once Chrome has loaded the extension document.
 document.addEventListener("DOMContentLoaded", () => {
   setupTabs();
-  renderTools();
   renderBuildWatermark();
   loadAndRenderFocusModes();
   setupExtensionStreak();
@@ -35,7 +34,19 @@ document.addEventListener("DOMContentLoaded", () => {
   setupSettingsPersistence();
   setupDebugAlerts();
   listenForBackgroundMessages();
+  loadActiveTools(); // add this
 });
+
+// Load active tools from storage and re-render the tools list.
+function loadActiveTools() {
+  chrome.storage.local.get(["activeTools", "focusMode"], (data) => {
+    if (data.focusMode && data.activeTools) {
+      renderTools(data.activeTools);
+    } else {
+      renderTools();
+    }
+  });
+}
 
 // Wire the top navigation buttons to their matching tab panels.
 function setupTabs() {
@@ -63,11 +74,15 @@ function setupTabs() {
 }
 
 // Render tool cards from the registry in tools.js so smoke tests and UI share one source.
-function renderTools() {
+function renderTools(allowedToolIds = null) {
   const container = document.getElementById("toolsList");
   container.replaceChildren();
 
-  window.TOOLS.forEach((tool) => {
+  const toolsToRender = allowedToolIds
+    ? window.TOOLS.filter((tool) => allowedToolIds.includes(tool.id))
+    : window.TOOLS;
+
+  toolsToRender.forEach((tool) => {
     const card = document.createElement("div");
     card.className = "tool-card";
 
@@ -274,6 +289,14 @@ function openModeForm(existingMode) {
   descInput.value = existingMode ? existingMode.desc : "";
   descInput.setAttribute("aria-label", "Mode description");
 
+  // Timer fields (custom modes only) - declared here so they're accessible in form.append
+  let focusDurationLabel = null;
+  let focusDurationInput = null;
+  let breakDurationLabel = null;
+  let breakDurationInput = null;
+  let autoBreakLabel = null;
+  let autoBreakInput = null;
+
   // Tools checkboxes
   const toolsLabel = document.createElement("div");
   toolsLabel.className = "focus-form-label";
@@ -295,6 +318,70 @@ function openModeForm(existingMode) {
     row.append(checkbox, toolName);
     toolsGroup.appendChild(row);
   });
+
+  // Build timer fields for custom modes
+  if (!existingMode || !existingMode.builtIn) {
+    focusDurationLabel = document.createElement("div");
+    focusDurationLabel.className = "focus-form-label";
+    focusDurationLabel.textContent = "Focus duration (min)";
+
+    focusDurationInput = document.createElement("input");
+    focusDurationInput.className = "focus-form-input";
+    focusDurationInput.type = "number";
+    focusDurationInput.min = "1";
+    focusDurationInput.max = "120";
+    focusDurationInput.value = existingMode?.toolSettings?.focusDuration || 25;
+    focusDurationInput.setAttribute("aria-label", "Focus duration in minutes");
+
+    breakDurationLabel = document.createElement("div");
+    breakDurationLabel.className = "focus-form-label";
+    breakDurationLabel.textContent = "Break duration (min)";
+
+    breakDurationInput = document.createElement("input");
+    breakDurationInput.className = "focus-form-input";
+    breakDurationInput.type = "number";
+    breakDurationInput.min = "1";
+    breakDurationInput.max = "60";
+    breakDurationInput.value = existingMode?.toolSettings?.breakDuration || 5;
+    breakDurationInput.setAttribute("aria-label", "Break duration in minutes");
+
+    autoBreakLabel = document.createElement("label");
+    autoBreakLabel.className = "focus-form-tool-row";
+
+    autoBreakInput = document.createElement("input");
+    autoBreakInput.type = "checkbox";
+    autoBreakInput.checked = existingMode?.toolSettings?.autoBreak || false;
+
+    const autoBreakText = document.createElement("span");
+    autoBreakText.textContent = "Auto-start break";
+
+    autoBreakLabel.append(autoBreakInput, autoBreakText);
+
+    // Show/hide based on whether Pomodoro is checked
+    const pomodoroCheckbox = toolsGroup.querySelector(
+      'input[value="pomodoro"]'
+    );
+    const timerFields = [
+      focusDurationLabel,
+      focusDurationInput,
+      breakDurationLabel,
+      breakDurationInput,
+      autoBreakLabel,
+    ];
+
+    function updateTimerVisibility() {
+      const show = pomodoroCheckbox && pomodoroCheckbox.checked;
+      timerFields.forEach((field) => {
+        field.hidden = !show;
+      });
+    }
+
+    updateTimerVisibility();
+
+    if (pomodoroCheckbox) {
+      pomodoroCheckbox.addEventListener("change", updateTimerVisibility);
+    }
+  }
 
   // Error message area (hidden until validation fails).
   const errorMsg = document.createElement("p");
@@ -334,10 +421,26 @@ function openModeForm(existingMode) {
       .filter((cb) => cb.checked)
       .map((cb) => cb.value);
 
+    const toolSettings = {};
+    if (focusDurationInput) {
+      toolSettings.focusDuration = parseInt(focusDurationInput.value, 10);
+    }
+    if (breakDurationInput) {
+      toolSettings.breakDuration = parseInt(breakDurationInput.value, 10);
+    }
+    if (autoBreakInput) {
+      toolSettings.autoBreak = autoBreakInput.checked;
+    }
+
     if (existingMode) {
       window.FocusKitModes.updateFocusMode(
         existingMode.id,
-        { name: trimmedName, desc: descInput.value.trim(), enabledTools },
+        {
+          name: trimmedName,
+          desc: descInput.value.trim(),
+          enabledTools,
+          toolSettings,
+        },
         () => {
           overlay.remove();
           loadAndRenderFocusModes();
@@ -348,7 +451,7 @@ function openModeForm(existingMode) {
         trimmedName,
         descInput.value.trim(),
         enabledTools,
-        {},
+        toolSettings,
         () => {
           overlay.remove();
           loadAndRenderFocusModes();
@@ -358,19 +461,30 @@ function openModeForm(existingMode) {
   });
 
   buttonRow.append(saveBtn, cancelBtn);
+
+  // Build form in correct order - timer fields go between desc and tools
   form.append(
     titleRow,
     nameLabel,
     nameInput,
     descLabel,
     descInput,
+    ...(focusDurationLabel
+      ? [
+          focusDurationLabel,
+          focusDurationInput,
+          breakDurationLabel,
+          breakDurationInput,
+          autoBreakLabel,
+        ]
+      : []),
     toolsLabel,
     toolsGroup,
     errorMsg,
     buttonRow
   );
-  overlay.appendChild(form);
 
+  overlay.appendChild(form);
   document.getElementById("tab-focus").appendChild(overlay);
   nameInput.focus();
 }
@@ -428,14 +542,16 @@ function confirmDeleteMode(mode) {
 function loadSavedState() {
   chrome.storage.local.get([...SETTING_KEYS, "focusMode"], (data) => {
     const isDarkMode = resolveDarkMode(data.dark);
-
     applyTheme(isDarkMode);
 
     SETTING_KEYS.forEach((key) => {
       const input = document.getElementById(`setting${capitalize(key)}`);
+      if (!input) return;
 
-      if (input && data[key] !== undefined) {
+      if (input.type === "checkbox" && data[key] !== undefined) {
         input.checked = data[key];
+      } else if (input.type === "number" && data[key] !== undefined) {
+        input.value = data[key];
       }
     });
 
@@ -445,10 +561,7 @@ function loadSavedState() {
       const savedCard = document.querySelector(
         `[data-mode-id="${data.focusMode}"]`
       );
-
-      if (savedCard) {
-        selectFocusMode(data.focusMode, savedCard, false);
-      }
+      if (savedCard) selectFocusMode(data.focusMode, savedCard, false);
     }
   });
 }
@@ -460,12 +573,17 @@ function setupSettingsPersistence() {
     .forEach((input) => {
       input.addEventListener("change", () => {
         const key = settingKeyFromInput(input);
-
-        if (key === "dark") {
-          applyTheme(input.checked);
-        }
-
+        if (key === "dark") applyTheme(input.checked);
         chrome.storage.local.set({ [key]: input.checked });
+      });
+    });
+
+  document
+    .querySelectorAll(".settings-list input[type=number]")
+    .forEach((input) => {
+      input.addEventListener("change", () => {
+        const key = settingKeyFromInput(input);
+        chrome.storage.local.set({ [key]: parseInt(input.value, 10) });
       });
     });
 }
@@ -704,6 +822,7 @@ function listenForBackgroundMessages() {
     if (message.action === "focus:modeApplied") {
       const card = document.querySelector(`[data-mode-id="${message.modeId}"]`);
       if (card) selectFocusMode(message.modeId, card, false);
+      renderTools(message.enabledTools);
     }
   });
 }

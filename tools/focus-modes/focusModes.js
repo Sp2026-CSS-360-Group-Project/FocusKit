@@ -4,7 +4,6 @@
 // importScripts() in the service worker safe to call across worker
 // re-evaluations without triggering "Identifier has already been declared".
 (() => {
-  // Storage key used by both this module and background.js.
   const FOCUS_MODES_STORAGE_KEY = "focusKit:focusModes";
   const ACTIVE_MODE_STORAGE_KEY = "focusMode";
 
@@ -16,8 +15,11 @@
       icon: "D",
       desc: "Long, distraction-light sessions for complex work.",
       builtIn: true,
-      enabledTools: ["pomodoro"],
-      toolSettings: {},
+      enabledTools: ["pomodoro", "eisenhower"],
+      toolSettings: {
+        focusDuration: 30,
+        breakDuration: 10,
+      },
     },
     {
       id: "study",
@@ -25,17 +27,11 @@
       icon: "S",
       desc: "Structured review mode for notes, reading, and practice.",
       builtIn: true,
-      enabledTools: ["pomodoro", "eisenhower"],
-      toolSettings: {},
-    },
-    {
-      id: "break",
-      name: "Lazy",
-      icon: "L",
-      desc: "Doomscrolling Time!",
-      builtIn: true,
-      enabledTools: [],
-      toolSettings: {},
+      enabledTools: ["pomodoro", "quickdraw"],
+      toolSettings: {
+        focusDuration: 20,
+        breakDuration: 10,
+      },
     },
   ];
 
@@ -43,7 +39,6 @@
   function loadFocusModes(callback) {
     chrome.storage.local.get([FOCUS_MODES_STORAGE_KEY], (data) => {
       const stored = data[FOCUS_MODES_STORAGE_KEY];
-      // First run: seed storage with defaults so future saves merge correctly.
       if (!Array.isArray(stored)) {
         chrome.storage.local.set(
           { [FOCUS_MODES_STORAGE_KEY]: DEFAULT_FOCUS_MODES },
@@ -90,7 +85,6 @@
         return {
           ...mode,
           ...changes,
-          // Keep id and builtIn flag immutable.
           id: mode.id,
           builtIn: mode.builtIn,
         };
@@ -108,7 +102,6 @@
         return;
       }
       const updated = modes.filter((m) => m.id !== modeId);
-      // If the deleted mode was active, clear that selection too.
       chrome.storage.local.get([ACTIVE_MODE_STORAGE_KEY], (data) => {
         const ops = [new Promise((res) => saveFocusModes(updated, res))];
         if (data[ACTIVE_MODE_STORAGE_KEY] === modeId) {
@@ -133,7 +126,6 @@
     deleteFocusMode,
   };
 
-  // Expose for popup, service worker importScripts(), and tests.
   if (typeof globalThis !== "undefined") {
     globalThis.FocusKitModes = FocusKitModes;
   }
