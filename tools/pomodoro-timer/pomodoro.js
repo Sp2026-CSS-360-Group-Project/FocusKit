@@ -263,6 +263,7 @@ function startBreakInterval() {
       breakIntervalId = null;
       breakState = null;
       chrome.storage.local.remove(BREAK_STORAGE_KEY);
+      sendBackgroundMessage({ action: "pomodoro:breakComplete" }, () => {});
       pomodoroState = resetPomodoro(pomodoroState);
       renderPomodoro(pomodoroState);
       persistPomodoroState(pomodoroState);

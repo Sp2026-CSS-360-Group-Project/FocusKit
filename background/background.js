@@ -60,6 +60,7 @@ const MESSAGE_ACTIONS = {
   pomodoroReset: "pomodoro:reset",
   pomodoroSetDuration: "pomodoro:setDuration",
   pomodoroComplete: "pomodoro:complete",
+  pomodoroBreakComplete: "pomodoro:breakComplete",
   debugTestAlerts: "debug:testAlerts",
   focusSetMode: "focus:setMode",
 };
@@ -171,6 +172,11 @@ async function handleMessageAsync(message) {
 
   if (message.action === MESSAGE_ACTIONS.pomodoroComplete) {
     return completePomodoroSession(message.source || "popup");
+  }
+
+  if (message.action === "pomodoro:breakComplete") {
+    const effects = await handlePomodoroComplete("popup");
+    return { success: true, effects };
   }
 
   if (message.action === MESSAGE_ACTIONS.debugTestAlerts) {
