@@ -70,10 +70,8 @@ function getEisenhowerPanel() {
     </div>
 
     <div class="eisenhower-matrix-wrap">
-      <!-- Vertical axis label: Importance -->
-
+      <div class="eisenhower-axis-y">Important</div>
       <div class="eisenhower-grid" id="eisenhowerGrid">
-        <!-- Horizontal axis labels: Urgency -->
         <div class="eisenhower-axis eisenhower-axis-top">Urgent</div>
         <div class="eisenhower-axis eisenhower-axis-top">Not Urgent</div>
         <div class="eisenhower-quadrant" data-quadrant="q1"></div>
@@ -207,8 +205,20 @@ function buildTaskCard(task) {
 
   if (task.dueDate) {
     const due = document.createElement("span");
-    due.className = "eisenhower-task-due";
-    due.textContent = task.dueDate;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const dueDate = new Date(task.dueDate);
+
+    if (dueDate < today) {
+      due.className = "eisenhower-task-due eisenhower-task-overdue";
+      due.textContent = `⚠ ${task.dueDate}`;
+    } else {
+      due.className = "eisenhower-task-due";
+      due.textContent = task.dueDate;
+    }
+
     meta.appendChild(due);
   }
 
@@ -402,10 +412,12 @@ function openTaskForm(existingTask) {
   dueDateWarning.hidden = true;
   dueDateWarning.textContent = "⚠ Due date cannot be in the past.";
 
-  dueInput.addEventListener("change", () => {
+  if (isEditing) {
+    dueInput.value = existingTask.dueDate;
+
     const warning = validateDueDate(dueInput.value);
     dueDateWarning.hidden = !warning;
-  });
+  }
 
   const sizeSelect = document.createElement("select");
   sizeSelect.className = "eisenhower-form-input";
@@ -478,13 +490,6 @@ function openTaskForm(existingTask) {
       error.textContent = "Task name is required.";
       error.hidden = false;
       nameInput.focus();
-      return;
-    }
-
-    const dueDateError = validateDueDate(fields.dueDate);
-    if (dueDateError) {
-      error.textContent = dueDateError;
-      error.hidden = false;
       return;
     }
 
