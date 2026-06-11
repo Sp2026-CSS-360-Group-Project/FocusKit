@@ -16,6 +16,8 @@ find repo folder, select it.
 refresh extension next to the errors button.
 6:
 open Focuskit chrome extension like other chrome extensions normally.
+7: 
+utlize focus mode or make your own mode to enable or disable tools.
 
 ## Features
 
