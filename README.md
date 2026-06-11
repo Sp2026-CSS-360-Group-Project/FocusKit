@@ -1,7 +1,6 @@
 # Extention-skeleton
 
-## Static analysis and review
-
+## How to install the extension
 
 How to setup the extension on chrome.
 
@@ -13,10 +12,34 @@ open chrome, go to settings click extensions.
 press load unpacked.
 4:
 find repo folder, select it.
-5: 
+5:
 refresh extension next to the errors button.
-6: 
+6:
 open Focuskit chrome extension like other chrome extensions normally.
+
+## Features
+
+Tools Hub
+
+- Pomodoro Timer
+- Quickdraw
+- Eisenhower Matrix
+
+Focus Tab
+
+- For users to customize FocusKit to their liking.
+- New modes can be made with users selecting which tools they want to enable.
+- Pomodoro timer features can be adjusted here
+
+Settings
+
+- Notifications
+- Sound effects (For pomodoro timer)
+- Dark mode / Light mode
+- Daily Streak customization
+- Notification debugging (For testing)
+
+## Static analysis and review
 
 This project uses Prettier as the formatter. Run `npm run format` to format
 tracked source, test, configuration, and documentation files, or
